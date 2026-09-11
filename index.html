@@ -39,23 +39,60 @@
        font-weight:700;background:var(--terra);color:#fff;margin-top:12px}
   button.ghost{background:var(--panel);color:var(--cream);border:1px solid var(--line)}
   button.turq{background:var(--turq)}
+  button.small{width:auto;padding:9px 14px;font-size:14px;margin:0}
+  button:disabled{opacity:.5}
   .bar{position:fixed;left:0;right:0;bottom:0;background:var(--panel);
        border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
-  .bar .inner{max-width:720px;margin:0 auto}
+  .bar .inner{max-width:720px;margin:0 auto;display:flex;gap:10px}
+  .bar .inner button{margin:0}
   .steps{counter-reset:s;padding-left:0;list-style:none;margin:10px 0 0}
   .steps li{counter-increment:s;position:relative;padding-left:30px;margin:8px 0;font-size:14px}
   .steps li:before{content:counter(s);position:absolute;left:0;top:0;width:22px;height:22px;
        border-radius:50%;background:var(--terra);color:#fff;font-size:12px;font-weight:700;
        display:flex;align-items:center;justify-content:center}
   .hide{display:none}
+
+  /* ——— экран проверки картинок ——— */
+  .slot{border:1px solid var(--line);border-radius:14px;background:#1f1712;
+        padding:12px;margin:12px 0}
+  .slot .top{display:flex;gap:12px;align-items:center}
+  .slot .now{width:74px;height:74px;border-radius:12px;flex:0 0 auto;
+        background:#2c201a center/cover no-repeat;border:1px solid var(--line);
+        display:flex;align-items:center;justify-content:center;color:#7d6a5c;font-size:12px;
+        text-align:center;position:relative;overflow:hidden}
+  .slot .now .kind{position:absolute;right:3px;bottom:3px;background:rgba(0,0,0,.65);
+        color:var(--cream);font-size:10px;padding:1px 5px;border-radius:6px}
+  .slot .who{flex:1;min-width:0}
+  .slot .who b{font-size:16px}
+  .slot .state{font-size:13px;margin-top:2px}
+  .ok{color:#6fc08a}
+  .wait{color:var(--gold)}
+  .bad{color:#e08b7a}
+  .vars{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
+  .vars .v{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;
+        border:2px solid transparent;background:#2c201a center/cover no-repeat}
+  .vars .v.sel{border-color:var(--gold)}
+  .vars .v .mark{position:absolute;inset:auto 4px 4px auto;background:rgba(0,0,0,.7);
+        border-radius:6px;font-size:10px;padding:1px 5px}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .log{background:#160f0c;border:1px solid var(--line);border-radius:12px;padding:12px;
+       font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;
+       max-height:240px;overflow:auto;color:#c9b6a6}
+  .lamp{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;
+        background:#7d6a5c;vertical-align:middle}
+  .lamp.go{background:var(--gold);animation:pulse 1.1s infinite}
+  .lamp.done{background:#6fc08a}
+  .lamp.fail{background:#e08b7a}
+  @keyframes pulse{50%{opacity:.35}}
 </style>
 </head>
 <body>
 <div class="wrap">
 
+  <!-- ————————————————— список викторин ————————————————— -->
   <div id="menu">
     <h1>Викторины</h1>
-    <div class="muted">Собери выпуск с телефона. Видео потом сделает компьютер.</div>
+    <div class="muted">Собери выпуск с телефона — от вопросов до готового ролика.</div>
 
     <div class="card pick" data-quiz="this-or-that">
       <div class="dot"></div>
@@ -80,10 +117,14 @@
         <div class="muted">Скоро</div>
       </div>
     </div>
+
+    <button class="big ghost" id="кнопка-настройки">Настройки доступа</button>
   </div>
 
+  <!-- ————————————————— редактор ————————————————— -->
   <div id="editor" class="hide">
     <h1>Это или то</h1>
+    <div class="muted">Шаг 1 из 3 — вопросы</div>
 
     <h2>Заставка</h2>
     <div class="card">
@@ -123,32 +164,110 @@
       </select>
     </div>
 
-    <h2>Что дальше</h2>
-    <div class="card">
-      <ol class="steps">
-        <li>Нажми «Скачать выпуск» — получится один файл.</li>
-        <li>Перешли его себе на компьютер: телеграм, почта, облако — как удобно.</li>
-        <li>Положи файл в папку «Выпуски с сайта» рядом с кнопками.</li>
-        <li>Нажми кнопку «Забрать выпуск с сайта», потом «Вставить медиафайлы» и «Собрать ролик».</li>
-      </ol>
+    <button class="big ghost" id="back">← к списку викторин</button>
+  </div>
+
+  <!-- ————————————————— проверка картинок ————————————————— -->
+  <div id="picts" class="hide">
+    <h1>Картинки</h1>
+    <div class="muted">Шаг 2 из 3 — посмотри, что встанет в кадр</div>
+
+    <div class="card" id="подсказка-картинки">
+      <div class="muted">
+        Нажми на любую строчку — покажу варианты. Выбираешь тот, что нравится.
+        Можно поставить своё фото с телефона. Что не выберешь — подберётся само
+        при сборке.
+      </div>
     </div>
 
-    <button class="big ghost" id="back">← к списку викторин</button>
+    <div id="слоты"></div>
+
+    <button class="big ghost" id="назад-к-вопросам">← вернуться к вопросам</button>
+  </div>
+
+  <!-- ————————————————— сборка ————————————————— -->
+  <div id="build" class="hide">
+    <h1>Сборка</h1>
+    <div class="muted">Шаг 3 из 3 — ролик собирается сам</div>
+
+    <div class="card">
+      <div id="состояние"><span class="lamp"></span>Готов начать</div>
+      <div class="muted" id="пояснение" style="margin-top:6px">
+        Нажми «Собрать ролик» — дальше можно закрыть страницу и вернуться позже.
+      </div>
+    </div>
+
+    <div class="card hide" id="карточка-хода">
+      <div class="log" id="ход"></div>
+    </div>
+
+    <div class="card hide" id="карточка-готово">
+      <div style="font-size:17px;font-weight:700;margin-bottom:8px">Ролик готов</div>
+      <div class="muted" id="про-ролик"></div>
+      <a id="скачать-ролик" class="big turq" style="display:block;text-align:center;
+         text-decoration:none;line-height:1.2;padding:16px;border-radius:14px;
+         color:#fff;font-weight:700;margin-top:12px">Скачать ролик</a>
+    </div>
+
+    <button class="big ghost" id="назад-к-картинкам">← вернуться к картинкам</button>
+  </div>
+
+  <!-- ————————————————— настройки ————————————————— -->
+  <div id="setup" class="hide">
+    <h1>Настройки доступа</h1>
+    <div class="muted">Вписывается один раз и остаётся в этом телефоне.</div>
+
+    <div class="card">
+      <label>Ключ Pexels — чтобы искать картинки</label>
+      <input id="ключ-pexels" placeholder="длинная строка из букв и цифр" autocomplete="off">
+      <div class="muted" style="margin-top:6px">
+        Без него ищутся только Википедия и Openverse — это медленнее и хуже.
+      </div>
+
+      <label>Токен GitHub — чтобы отправлять выпуск на сборку</label>
+      <input id="токен" placeholder="github_pat_… или ghp_…" autocomplete="off">
+      <div class="muted" style="margin-top:6px">
+        Без него ролик на сайте не соберётся: выпуск можно будет только скачать
+        файлом и отнести на компьютер.
+      </div>
+
+      <div class="tools">
+        <button class="big small turq" id="сохранить-настройки">Сохранить</button>
+        <button class="big small ghost" id="забыть-настройки">Забыть всё</button>
+        <button class="big small ghost" id="проверить-доступ">Проверить</button>
+      </div>
+      <div class="muted" id="итог-проверки" style="margin-top:10px"></div>
+    </div>
+
+    <button class="big ghost" id="назад-из-настроек">← назад</button>
   </div>
 </div>
 
 <div class="bar hide" id="bar">
-  <div class="inner">
-    <button class="big turq" id="save" style="margin:0">Скачать выпуск</button>
-  </div>
+  <div class="inner" id="панель"></div>
 </div>
 
 <input type="file" id="file" accept="image/*" hidden>
 
 <script>
+"use strict";
+
+// ——————————————————————————————————————————————————————————
+//  Куда отправляется работа
+// ——————————————————————————————————————————————————————————
+// Закрытый репозиторий: там исходники, туда же кладётся задание.
+// Открытый: туда сборка выкладывает готовый ролик, чтобы его можно
+// было скачать по обычной ссылке, без всяких паролей.
+const РЕПО_СБОРКИ = "gallxxxx/tiktok-quiz";
+const РЕПО_ВИДЕО = "gallxxxx/quiz";
+
 const $ = (id) => document.getElementById(id);
 const KEY = "викторина-это-или-то";
+const KEY_НАСТРОЙКИ = "викторина-доступ";
 
+// ——————————————————————————————————————————————————————————
+//  Память страницы
+// ——————————————————————————————————————————————————————————
 const ПУСТО = () => ({
   hook: "IF IT WAS FREE, WHAT WOULD YOU EAT?",
   edition: "FOOD EDITION",
@@ -156,24 +275,50 @@ const ПУСТО = () => ({
   shot: "крупный",
   voice: "en-US-GuyNeural",
   rounds: [
-    { top: "Pizza", bottom: "Burger", pct: 47, photos: {} },
-    { top: "Sushi", bottom: "Tacos", pct: 56, photos: {} },
-    { top: "Pasta", bottom: "Ramen", pct: 44, photos: {} },
+    { top: "Pizza", bottom: "Burger", pct: 47, photos: {}, picks: {} },
+    { top: "Sushi", bottom: "Tacos", pct: 56, photos: {}, picks: {} },
+    { top: "Pasta", bottom: "Ramen", pct: 44, photos: {}, picks: {} },
   ],
 });
 
 let state = ПУСТО();
 try {
   const was = localStorage.getItem(KEY);
-  if (was) state = JSON.parse(was);
+  if (was) state = { ...ПУСТО(), ...JSON.parse(was) };
+} catch {}
+// У выпусков, собранных до появления проверки картинок, поля picks нет.
+for (const r of state.rounds) if (!r.picks) r.picks = {};
+
+let доступ = { pexels: "", токен: "" };
+try {
+  const was = localStorage.getItem(KEY_НАСТРОЙКИ);
+  if (was) доступ = { ...доступ, ...JSON.parse(was) };
 } catch {}
 
 const сохранить = () => {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
 };
+const сохранитьДоступ = () => {
+  try { localStorage.setItem(KEY_НАСТРОЙКИ, JSON.stringify(доступ)); } catch {}
+};
 
-// ——— фотографию с телефона ужимаем прямо в браузере ———
-// Иначе файл выпуска получится в сотню мегабайт и его неудобно пересылать.
+// ——————————————————————————————————————————————————————————
+//  Мелочи
+// ——————————————————————————————————————————————————————————
+// btoa не умеет кириллицу, а имена и подписи у нас русские.
+const вБазу = (текст) => {
+  const байты = new TextEncoder().encode(текст);
+  let s = "";
+  for (let i = 0; i < байты.length; i += 0x8000) {
+    s += String.fromCharCode.apply(null, байты.subarray(i, i + 0x8000));
+  }
+  return btoa(s);
+};
+
+const путь = (p) => p.split("/").map(encodeURIComponent).join("/");
+
+// Фотографию с телефона ужимаем прямо здесь: иначе выпуск получится
+// в сотню мегабайт и его неудобно ни хранить, ни отправлять.
 const ужать = (file) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -198,7 +343,10 @@ const ужать = (file) =>
     reader.readAsDataURL(file);
   });
 
-let ждёт = null;
+// ——————————————————————————————————————————————————————————
+//  Редактор вопросов
+// ——————————————————————————————————————————————————————————
+let ждёт = null; // куда положить фото, которое сейчас выбирают
 
 const рисовать = () => {
   const box = $("pairs");
@@ -220,8 +368,9 @@ const рисовать = () => {
     const bottom = el.querySelector('input[data-side="bottom"]');
     top.value = r.top;
     bottom.value = r.bottom;
-    top.addEventListener("input", () => { r.top = top.value; сохранить(); });
-    bottom.addEventListener("input", () => { r.bottom = bottom.value; сохранить(); });
+    // Подпись поменялась — прежний выбор картинки к ней уже не относится.
+    top.addEventListener("input", () => { r.top = top.value; r.picks.top = null; сохранить(); });
+    bottom.addEventListener("input", () => { r.bottom = bottom.value; r.picks.bottom = null; сохранить(); });
 
     const range = el.querySelector('input[type="range"]');
     range.addEventListener("input", () => {
@@ -244,7 +393,7 @@ const рисовать = () => {
         slot.textContent = "";
       }
       slot.addEventListener("click", () => {
-        ждёт = { round: i, side };
+        ждёт = { round: i, side, откуда: "редактор" };
         $("file").click();
       });
     });
@@ -256,13 +405,16 @@ const рисовать = () => {
 $("file").addEventListener("change", async () => {
   const file = $("file").files[0];
   if (!file || !ждёт) return;
+  const куда = ждёт;
   try {
     const base64 = await ужать(file);
-    const r = state.rounds[ждёт.round];
+    const r = state.rounds[куда.round];
     r.photos = r.photos || {};
-    r.photos[ждёт.side] = base64;
+    r.photos[куда.side] = base64;
+    r.picks[куда.side] = null; // своё фото главнее любого найденного
     сохранить();
-    рисовать();
+    if (куда.откуда === "редактор") рисовать();
+    else рисоватьСлоты();
   } catch (e) {
     alert("Не вышло: " + e.message);
   }
@@ -271,7 +423,7 @@ $("file").addEventListener("change", async () => {
 });
 
 $("add").addEventListener("click", () => {
-  state.rounds.push({ top: "", bottom: "", pct: 50, photos: {} });
+  state.rounds.push({ top: "", bottom: "", pct: 50, photos: {}, picks: {} });
   сохранить();
   рисовать();
   window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
@@ -279,28 +431,285 @@ $("add").addEventListener("click", () => {
 
 for (const id of ["hook", "edition", "mode", "shot", "voice"]) {
   $(id).addEventListener("input", () => {
-    state[id === "hook" || id === "edition" ? id : id] = $(id).value;
+    state[id] = $(id).value;
     сохранить();
   });
 }
 
-// ——— файл выпуска ———
+// ——————————————————————————————————————————————————————————
+//  Поиск картинок — прямо из браузера
+// ——————————————————————————————————————————————————————————
+// Повторяем то, что дома делают get-photos и get-videos: у крупного
+// плана к запросу добавляется «close up» (для еды это спасение),
+// у общего — наоборот не добавляется, иначе вместо машины приезжает
+// эмблема на капоте.
+const запросы = (подпись, план) => {
+  const s = подпись.trim();
+  if (!s) return [];
+  return план === "крупный" ? [s + " close up", s] : [s];
+};
+
+const кПексельсу = async (адрес) => {
+  if (!доступ.pexels) return null;
+  try {
+    const res = await fetch(адрес, { headers: { Authorization: доступ.pexels } });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+};
+
+const искатьФотоPexels = async (подпись, план) => {
+  const найдено = [];
+  for (const q of запросы(подпись, план)) {
+    const j = await кПексельсу(
+      "https://api.pexels.com/v1/search?per_page=12&orientation=square&query=" + encodeURIComponent(q),
+    );
+    for (const p of j?.photos ?? []) {
+      найдено.push({
+        показ: p.src?.medium ?? p.src?.small,
+        ссылка: p.src?.large ?? p.src?.original,
+        вид: "фото",
+        автор: p.photographer ?? "неизвестен",
+        источник: "Pexels",
+        страница: p.url ?? "",
+      });
+    }
+    if (найдено.length >= 9) break;
+  }
+  return найдено;
+};
+
+const искатьФотоOpenverse = async (подпись) => {
+  try {
+    const res = await fetch(
+      "https://api.openverse.org/v1/images/?mature=false&page_size=12&q=" + encodeURIComponent(подпись),
+    );
+    if (!res.ok) return [];
+    const j = await res.json();
+    return (j.results ?? [])
+      .filter((p) => p.url)
+      .map((p) => ({
+        показ: p.thumbnail ?? p.url,
+        ссылка: p.url,
+        вид: "фото",
+        автор: p.creator ?? "неизвестен",
+        источник: "Openverse",
+        страница: p.foreign_landing_url ?? "",
+      }));
+  } catch {
+    return [];
+  }
+};
+
+// Из нескольких размеров клипа берём самый маленький, который ещё не мелкий:
+// ролик всё равно ужимается до 1000 точек, а лишние мегабайты качаются долго.
+const файлКлипа = (v) => {
+  const файлы = (v.video_files ?? []).filter((f) => f.file_type === "video/mp4" && f.link);
+  if (!файлы.length) return null;
+  const годные = файлы.filter((f) => (f.width ?? 0) >= 720).sort((a, b) => (a.width ?? 0) - (b.width ?? 0));
+  return (годные[0] ?? файлы.sort((a, b) => (b.width ?? 0) - (a.width ?? 0))[0]).link;
+};
+
+const искатьКлипы = async (подпись, план) => {
+  const найдено = [];
+  for (const q of запросы(подпись, план)) {
+    const j = await кПексельсу(
+      "https://api.pexels.com/videos/search?per_page=10&orientation=portrait&query=" + encodeURIComponent(q),
+    );
+    for (const v of j?.videos ?? []) {
+      const ссылка = файлКлипа(v);
+      if (!ссылка) continue;
+      найдено.push({
+        показ: v.image,
+        ссылка,
+        вид: "клип",
+        автор: v.user?.name ?? "неизвестен",
+        источник: "Pexels",
+        страница: v.url ?? "",
+      });
+    }
+    if (найдено.length >= 9) break;
+  }
+  return найдено;
+};
+
+const искать = async (подпись, режим, план) => {
+  if (режим === "видео") {
+    const клипы = await искатьКлипы(подпись, план);
+    if (клипы.length) return клипы;
+    // Клипов на это слово может не быть вовсе — дома в таком случае
+    // подставляется фотография, здесь поступаем так же.
+    return искатьФотоPexels(подпись, план);
+  }
+  const фото = await искатьФотоPexels(подпись, план);
+  if (фото.length) return фото;
+  return искатьФотоOpenverse(подпись);
+};
+
+// ——————————————————————————————————————————————————————————
+//  Экран проверки картинок
+// ——————————————————————————————————————————————————————————
+const места = () => {
+  const список = [];
+  state.rounds.forEach((r, i) => {
+    for (const side of ["top", "bottom"]) {
+      const подпись = (r[side] || "").trim();
+      if (!подпись) continue;
+      список.push({ round: i, side, подпись });
+    }
+  });
+  return список;
+};
+
+const варианты = {}; // «2-top» → найденные картинки, чтобы не искать заново
+let открытое = null;
+
+const рисоватьСлоты = () => {
+  const box = $("слоты");
+  box.innerHTML = "";
+  const всё = места();
+
+  if (!всё.length) {
+    box.innerHTML = '<div class="card muted">Сначала впиши хотя бы один вопрос.</div>';
+    return;
+  }
+
+  всё.forEach((м) => {
+    const r = state.rounds[м.round];
+    const ключ = м.round + "-" + м.side;
+    const своё = r.photos?.[м.side];
+    const выбор = r.picks?.[м.side];
+
+    const el = document.createElement("div");
+    el.className = "slot";
+
+    const превью = своё
+      ? "data:image/jpeg;base64," + своё
+      : выбор
+        ? выбор.показ || выбор.ссылка
+        : "";
+
+    const состояние = своё
+      ? '<span class="ok">своё фото</span>'
+      : выбор
+        ? '<span class="ok">выбрано · ' + (выбор.вид === "клип" ? "клип" : "фото") + "</span>"
+        : '<span class="wait">подберётся само</span>';
+
+    el.innerHTML =
+      '<div class="top">' +
+        '<div class="now"' + (превью ? ' style="background-image:url(' + JSON.stringify(превью) + ')"' : "") + ">" +
+          (превью ? "" : "нет") +
+        "</div>" +
+        '<div class="who"><b></b><div class="state">' + состояние + "</div></div>" +
+        '<button class="big small ghost открыть">Выбрать</button>' +
+      "</div>" +
+      '<div class="vars hide"></div>' +
+      '<div class="tools hide">' +
+        '<button class="big small ghost ещё">Ещё варианты</button>' +
+        '<button class="big small ghost моё">Своё фото</button>' +
+        '<button class="big small ghost сброс">Пусть подберётся само</button>' +
+      "</div>";
+
+    el.querySelector("b").textContent = м.подпись;
+
+    const сетка = el.querySelector(".vars");
+    const кнопки = el.querySelector(".tools");
+    const открыть = el.querySelector(".открыть");
+
+    const показать = async (заново) => {
+      const было = открытое === ключ;
+      открытое = было && !заново ? null : ключ;
+      if (!открытое) {
+        сетка.classList.add("hide");
+        кнопки.classList.add("hide");
+        открыть.textContent = "Выбрать";
+        return;
+      }
+      сетка.classList.remove("hide");
+      кнопки.classList.remove("hide");
+      открыть.textContent = "Свернуть";
+
+      if (!варианты[ключ] || заново) {
+        сетка.innerHTML = '<div class="muted" style="grid-column:1/-1">Ищу…</div>';
+        варианты[ключ] = await искать(м.подпись, state.mode, state.shot);
+      }
+      const список = варианты[ключ];
+      if (!список.length) {
+        сетка.innerHTML =
+          '<div class="muted" style="grid-column:1/-1">Ничего не нашлось. ' +
+          (доступ.pexels ? "Попробуй другое слово." : "Впиши ключ Pexels в настройках — с ним находится куда лучше.") +
+          "</div>";
+        return;
+      }
+
+      сетка.innerHTML = "";
+      список.forEach((в) => {
+        const d = document.createElement("div");
+        d.className = "v" + (выбор && выбор.ссылка === в.ссылка ? " sel" : "");
+        d.style.backgroundImage = "url(" + JSON.stringify(в.показ || в.ссылка) + ")";
+        if (в.вид === "клип") d.innerHTML = '<span class="mark">клип</span>';
+        d.addEventListener("click", () => {
+          r.picks[м.side] = в;
+          delete r.photos[м.side]; // выбрали из стока — своё фото больше не нужно
+          сохранить();
+          рисоватьСлоты();
+        });
+        сетка.appendChild(d);
+      });
+    };
+
+    открыть.addEventListener("click", () => показать(false));
+    el.querySelector(".ещё").addEventListener("click", () => показать(true));
+    el.querySelector(".моё").addEventListener("click", () => {
+      ждёт = { round: м.round, side: м.side, откуда: "картинки" };
+      $("file").click();
+    });
+    el.querySelector(".сброс").addEventListener("click", () => {
+      r.picks[м.side] = null;
+      delete r.photos[м.side];
+      сохранить();
+      рисоватьСлоты();
+    });
+
+    box.appendChild(el);
+  });
+};
+
+// ——————————————————————————————————————————————————————————
+//  Файл выпуска
+// ——————————————————————————————————————————————————————————
 const собратьФайл = () => {
   const вопросы = state.rounds
     .filter((r) => (r.top || "").trim() && (r.bottom || "").trim())
-    .map((r) => ({
-      сверху: r.top.trim(),
-      снизу: r.bottom.trim(),
-      процент: r.pct,
-      фото: {
-        сверху: r.photos?.top ? { имя: "сверху.jpg", данные: r.photos.top } : null,
-        снизу: r.photos?.bottom ? { имя: "снизу.jpg", данные: r.photos.bottom } : null,
-      },
-    }));
+    .map((r) => {
+      const картинка = (side) => {
+        const в = r.picks?.[side];
+        if (!в?.ссылка) return null;
+        return {
+          ссылка: в.ссылка,
+          вид: в.вид,
+          автор: в.автор,
+          источник: в.источник,
+          страница: в.страница,
+        };
+      };
+      return {
+        сверху: r.top.trim(),
+        снизу: r.bottom.trim(),
+        процент: r.pct,
+        фото: {
+          сверху: r.photos?.top ? { имя: "сверху.jpg", данные: r.photos.top } : null,
+          снизу: r.photos?.bottom ? { имя: "снизу.jpg", данные: r.photos.bottom } : null,
+        },
+        картинки: { сверху: картинка("top"), снизу: картинка("bottom") },
+      };
+    });
 
   return {
     формат: "this-or-that",
-    версия: 1,
+    версия: 2,
     создан: new Date().toISOString(),
     заставка: { фраза: state.hook.trim(), тема: state.edition.trim() },
     концовка: {
@@ -318,20 +727,14 @@ const собратьФайл = () => {
   };
 };
 
-$("save").addEventListener("click", () => {
+const скачатьФайлом = () => {
   const выпуск = собратьФайл();
   if (!выпуск.вопросы.length) {
     alert("Ни одного вопроса не заполнено — впиши хотя бы один.");
     return;
   }
-
-  const текст = JSON.stringify(выпуск, null, 1);
-  const blob = new Blob([текст], { type: "application/json" });
-  const имя =
-    "выпуск " +
-    (выпуск.заставка.тема || "без темы").replace(/[\/:*?"<>|]/g, " ").trim() +
-    ".quiz";
-
+  const blob = new Blob([JSON.stringify(выпуск, null, 1)], { type: "application/json" });
+  const имя = "выпуск " + (выпуск.заставка.тема || "без темы").replace(/[\/:*?"<>|]/g, " ").trim() + ".quiz";
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = имя;
@@ -341,17 +744,219 @@ $("save").addEventListener("click", () => {
     URL.revokeObjectURL(a.href);
     a.remove();
   }, 1000);
+};
 
-  $("save").textContent = "Скачано ✓  вопросов: " + выпуск.вопросы.length;
-  setTimeout(() => ($("save").textContent = "Скачать выпуск"), 2500);
+// ——————————————————————————————————————————————————————————
+//  Разговор с GitHub
+// ——————————————————————————————————————————————————————————
+const кГитхабу = async (путьApi, опции = {}) => {
+  const res = await fetch("https://api.github.com/" + путьApi, {
+    ...опции,
+    headers: {
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...(доступ.токен ? { Authorization: "Bearer " + доступ.токен } : {}),
+      ...(опции.headers ?? {}),
+    },
+  });
+  let тело = null;
+  try { тело = await res.json(); } catch {}
+  return { ok: res.ok, код: res.status, тело };
+};
+
+let слежка = null;
+
+const строка = (текст) => {
+  const л = $("ход");
+  л.textContent += (л.textContent ? "\n" : "") + текст;
+  л.scrollTop = л.scrollHeight;
+};
+
+const лампа = (вид, текст) => {
+  $("состояние").innerHTML = '<span class="lamp ' + вид + '"></span>' + текст;
+};
+
+const отправить = async () => {
+  const выпуск = собратьФайл();
+  if (!выпуск.вопросы.length) {
+    alert("Ни одного вопроса не заполнено.");
+    return;
+  }
+  if (!доступ.токен) {
+    alert("Нет токена — страница не может отправить выпуск на сборку.\n\nВпиши его в настройках, либо скачай выпуск файлом и собери на компьютере.");
+    return;
+  }
+
+  $("карточка-хода").classList.remove("hide");
+  $("карточка-готово").classList.add("hide");
+  $("ход").textContent = "";
+  лампа("go", "Отправляю выпуск…");
+
+  const метка = new Date().toISOString().replace(/[:.]/g, "-");
+  const имя = "задания/выпуск-" + метка + ".quiz";
+  строка("Вопросов: " + выпуск.вопросы.length);
+
+  const ответ = await кГитхабу("repos/" + РЕПО_СБОРКИ + "/contents/" + путь(имя), {
+    method: "PUT",
+    body: JSON.stringify({
+      message: "Выпуск с сайта: " + (выпуск.заставка.тема || "без темы"),
+      content: вБазу(JSON.stringify(выпуск, null, 1)),
+    }),
+  });
+
+  if (!ответ.ok) {
+    лампа("fail", "Отправить не вышло");
+    строка("GitHub ответил: " + ответ.код + " " + (ответ.тело?.message ?? ""));
+    строка(ответ.код === 401 || ответ.код === 403
+      ? "Похоже, токен не подходит или у него мало прав. Проверь в настройках."
+      : "Попробуй ещё раз.");
+    return;
+  }
+
+  строка("Отправлено. Сборка начинается.");
+  лампа("go", "Собираю ролик…");
+  следить(Date.now());
+};
+
+// Сборка идёт минут десять. Спрашиваем раз в пятнадцать секунд —
+// чаще незачем, а страницу можно закрыть и вернуться позже.
+const следить = (начало) => {
+  clearInterval(слежка);
+  let прошлое = "";
+  слежка = setInterval(async () => {
+    const ответ = await кГитхабу("repos/" + РЕПО_СБОРКИ + "/actions/runs?per_page=5");
+    if (!ответ.ok) return;
+    const запуск = (ответ.тело?.workflow_runs ?? []).find(
+      (r) => new Date(r.created_at).getTime() >= начало - 120000,
+    );
+    if (!запуск) return;
+
+    const где = запуск.status === "completed" ? запуск.conclusion : запуск.status;
+    if (где !== прошлое) {
+      прошлое = где;
+      строка("Состояние: " + ({
+        queued: "в очереди",
+        in_progress: "идёт сборка",
+        success: "готово",
+        failure: "сломалось",
+        cancelled: "отменено",
+      }[где] ?? где));
+    }
+
+    if (запуск.status !== "completed") return;
+    clearInterval(слежка);
+
+    if (запуск.conclusion !== "success") {
+      лампа("fail", "Сборка не удалась");
+      строка("Подробности: " + запуск.html_url);
+      return;
+    }
+
+    лампа("done", "Готово");
+    await показатьРолик();
+  }, 15000);
+};
+
+const показатьРолик = async () => {
+  // Готовый ролик лежит в открытом репозитории — значит качается
+  // обычной ссылкой, без токенов и паролей.
+  try {
+    const res = await fetch("https://api.github.com/repos/" + РЕПО_ВИДЕО + "/releases/latest");
+    if (!res.ok) throw new Error("релиза нет");
+    const j = await res.json();
+    const файл = (j.assets ?? []).find((a) => a.name.toLowerCase().endsWith(".mp4"));
+    if (!файл) throw new Error("ролика в релизе нет");
+    $("про-ролик").textContent =
+      файл.name + " · " + (файл.size / 1024 / 1024).toFixed(1) + " МБ";
+    $("скачать-ролик").href = файл.browser_download_url;
+    $("карточка-готово").classList.remove("hide");
+  } catch (e) {
+    строка("Ролик собрался, но ссылку достать не вышло: " + e.message);
+    строка("Открой репозиторий с видео и забери файл оттуда.");
+  }
+};
+
+// ——————————————————————————————————————————————————————————
+//  Настройки доступа
+// ——————————————————————————————————————————————————————————
+$("сохранить-настройки").addEventListener("click", () => {
+  доступ.pexels = $("ключ-pexels").value.trim();
+  доступ.токен = $("токен").value.trim();
+  сохранитьДоступ();
+  $("итог-проверки").textContent = "Сохранено.";
 });
 
-// ——— переходы между экранами ———
-const открыть = (что) => {
-  $("menu").classList.toggle("hide", что !== "меню");
-  $("editor").classList.toggle("hide", что === "меню");
-  $("bar").classList.toggle("hide", что === "меню");
+$("забыть-настройки").addEventListener("click", () => {
+  доступ = { pexels: "", токен: "" };
+  сохранитьДоступ();
+  $("ключ-pexels").value = "";
+  $("токен").value = "";
+  $("итог-проверки").textContent = "Забыла. В этом телефоне ничего не осталось.";
+});
+
+$("проверить-доступ").addEventListener("click", async () => {
+  $("итог-проверки").textContent = "Проверяю…";
+  const строки = [];
+
+  доступ.pexels = $("ключ-pexels").value.trim();
+  доступ.токен = $("токен").value.trim();
+
+  if (!доступ.pexels) строки.push("Pexels: ключа нет — ищу только по Openverse.");
+  else {
+    const j = await кПексельсу("https://api.pexels.com/v1/search?query=test&per_page=1");
+    строки.push(j ? "Pexels: работает." : "Pexels: ключ не подошёл.");
+  }
+
+  if (!доступ.токен) строки.push("GitHub: токена нет — сборка на сайте недоступна.");
+  else {
+    const кто = await кГитхабу("user");
+    строки.push(кто.ok ? "GitHub: вход как " + кто.тело.login : "GitHub: токен не подошёл (" + кто.код + ").");
+    const репо = await кГитхабу("repos/" + РЕПО_СБОРКИ);
+    строки.push(репо.ok ? "Доступ к репозиторию сборки: есть." : "Доступ к репозиторию сборки: нет (" + репо.код + ").");
+  }
+
+  $("итог-проверки").innerHTML = строки.join("<br>");
+});
+
+// ——————————————————————————————————————————————————————————
+//  Переходы между экранами
+// ——————————————————————————————————————————————————————————
+const ЭКРАНЫ = ["menu", "editor", "picts", "build", "setup"];
+
+const панель = (кнопки) => {
+  const п = $("панель");
+  п.innerHTML = "";
+  if (!кнопки.length) {
+    $("bar").classList.add("hide");
+    return;
+  }
+  $("bar").classList.remove("hide");
+  for (const к of кнопки) {
+    const b = document.createElement("button");
+    b.className = "big " + (к.вид ?? "turq");
+    b.textContent = к.текст;
+    b.addEventListener("click", к.что);
+    п.appendChild(b);
+  }
+};
+
+const открытьЭкран = (что) => {
+  for (const id of ЭКРАНЫ) $(id).classList.toggle("hide", id !== что);
   window.scrollTo(0, 0);
+
+  if (что === "editor") {
+    панель([{ текст: "Дальше: картинки", что: () => открытьЭкран("picts") }]);
+  } else if (что === "picts") {
+    рисоватьСлоты();
+    панель([{ текст: "Дальше: сборка", что: () => открытьЭкран("build") }]);
+  } else if (что === "build") {
+    панель([
+      { текст: "Собрать ролик", что: отправить },
+      { текст: "Файлом", вид: "ghost", что: скачатьФайлом },
+    ]);
+  } else {
+    панель([]);
+  }
 };
 
 document.querySelectorAll(".card.pick").forEach((card) => {
@@ -360,20 +965,28 @@ document.querySelectorAll(".card.pick").forEach((card) => {
       alert("Эта викторина ещё не готова — скоро добавим.");
       return;
     }
-    открыть("редактор");
+    открытьЭкран("editor");
   });
 });
 
-$("back").addEventListener("click", () => открыть("меню"));
+$("back").addEventListener("click", () => открытьЭкран("menu"));
+$("назад-к-вопросам").addEventListener("click", () => открытьЭкран("editor"));
+$("назад-к-картинкам").addEventListener("click", () => открытьЭкран("picts"));
+$("кнопка-настройки").addEventListener("click", () => открытьЭкран("setup"));
+$("назад-из-настроек").addEventListener("click", () => открытьЭкран("menu"));
 
-// ——— первый показ ———
+// ——————————————————————————————————————————————————————————
+//  Первый показ
+// ——————————————————————————————————————————————————————————
 $("hook").value = state.hook || "";
 $("edition").value = state.edition || "";
 $("mode").value = state.mode || "фото";
 $("shot").value = state.shot || "крупный";
 $("voice").value = state.voice ?? "en-US-GuyNeural";
+$("ключ-pexels").value = доступ.pexels || "";
+$("токен").value = доступ.токен || "";
 рисовать();
-открыть("меню");
+открытьЭкран("menu");
 </script>
 </body>
 </html>
