@@ -66,7 +66,7 @@
   .slot{border:1px solid var(--line);border-radius:14px;background:#1f1712;
         padding:12px;margin:12px 0}
   .slot .top{display:flex;gap:12px;align-items:center}
-  .slot .now{width:74px;height:74px;border-radius:12px;flex:0 0 auto;
+  .slot .now{width:112px;height:63px;border-radius:12px;flex:0 0 auto;
         background:#2c201a center/cover no-repeat;border:1px solid var(--line);
         display:flex;align-items:center;justify-content:center;color:#7d6a5c;font-size:12px;
         text-align:center;position:relative;overflow:hidden}
@@ -78,8 +78,10 @@
   .ok{color:#6fc08a}
   .wait{color:var(--gold)}
   .bad{color:#e08b7a}
-  .vars{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
-  .vars .v{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;
+  /* Карточки выбора той же формы, что кадр в ролике: 16:9. Квадратные
+     обманывали: выбираешь по квадрату, а в ролик шла широкая обрезка. */
+  .vars{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+  .vars .v{position:relative;aspect-ratio:16/9;border-radius:10px;overflow:hidden;
         border:2px solid transparent;background:#2c201a center/cover no-repeat}
   .vars .v.sel{border-color:var(--gold)}
   .vars .v .mark{position:absolute;inset:auto 4px 4px auto;background:rgba(0,0,0,.7);
@@ -142,7 +144,13 @@
       <input id="hook" placeholder="IF IT WAS FREE, WHAT WOULD YOU EAT?">
       <label>Тема выпуска</label>
       <input id="edition" placeholder="FOOD EDITION">
-      <div class="muted" style="margin-top:8px">Пиши по-английски: по этим словам ещё и картинки ищутся.</div>
+      <label>Показывать заставку</label>
+      <select id="introOn">
+        <option value="да">да — сначала заставка, потом вопросы</option>
+        <option value="нет">нет — сразу первый выбор</option>
+      </select>
+      <div class="muted" style="margin-top:8px">Пиши по-английски: по этим словам ещё и картинки ищутся.
+      Фраза и тема нужны, даже если заставка выключена — по ним ищутся картинки и строится озвучка.</div>
     </div>
 
     <h2>Вопросы</h2>
@@ -285,6 +293,7 @@ const ПУСТО = () => ({
   mode: "фото",
   shot: "крупный",
   voice: "en-US-GuyNeural",
+  introOn: "да",
   rounds: [
     { top: "Pizza", bottom: "Burger", pct: 47, photos: {}, picks: {} },
     { top: "Sushi", bottom: "Tacos", pct: 56, photos: {}, picks: {} },
@@ -343,14 +352,22 @@ const ужать = (file) =>
       const img = new Image();
       img.onerror = () => reject(new Error("это не картинка"));
       img.onload = () => {
-        const size = 1000;
+        // Кадр в ролике широкий, 16:9 — под него и режем, по центру.
+        // Раньше резали в квадрат, и у широкой картинки пропадали бока.
+        const Ш = 1280;
+        const В = 720;
         const canvas = document.createElement("canvas");
-        canvas.width = size;
-        canvas.height = size;
+        canvas.width = Ш;
+        canvas.height = В;
         const ctx = canvas.getContext("2d");
-        // режем по центру квадратом — ровно так же, как делает ролик
-        const side = Math.min(img.width, img.height);
-        ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+        const масштаб = Math.min(img.width / Ш, img.height / В);
+        const бралиШ = Ш * масштаб;
+        const бралиВ = В * масштаб;
+        ctx.drawImage(
+          img,
+          (img.width - бралиШ) / 2, (img.height - бралиВ) / 2, бралиШ, бралиВ,
+          0, 0, Ш, В,
+        );
         const data = canvas.toDataURL("image/jpeg", 0.82);
         resolve(data.slice(data.indexOf(",") + 1));
       };
@@ -445,7 +462,7 @@ $("add").addEventListener("click", () => {
   window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
 });
 
-for (const id of ["hook", "edition", "mode", "shot", "voice"]) {
+for (const id of ["hook", "edition", "mode", "shot", "voice", "introOn"]) {
   $(id).addEventListener("input", () => {
     state[id] = $(id).value;
     сохранить();
@@ -476,11 +493,12 @@ const кПексельсу = async (адрес) => {
   }
 };
 
-const искатьФотоPexels = async (подпись, план) => {
+const искатьФотоPexels = async (подпись, план, страница = 1) => {
   const найдено = [];
   for (const q of запросы(подпись, план)) {
     const j = await кПексельсу(
-      "https://api.pexels.com/v1/search?per_page=12&orientation=square&query=" + encodeURIComponent(q),
+      "https://api.pexels.com/v1/search?per_page=12&orientation=landscape&page=" + страница +
+        "&query=" + encodeURIComponent(q),
     );
     for (const p of j?.photos ?? []) {
       найдено.push({
@@ -497,10 +515,11 @@ const искатьФотоPexels = async (подпись, план) => {
   return найдено;
 };
 
-const искатьФотоOpenverse = async (подпись) => {
+const искатьФотоOpenverse = async (подпись, страница = 1) => {
   try {
     const res = await fetch(
-      "https://api.openverse.org/v1/images/?mature=false&page_size=12&q=" + encodeURIComponent(подпись),
+      "https://api.openverse.org/v1/images/?mature=false&page_size=12&aspect_ratio=wide&page=" +
+        страница + "&q=" + encodeURIComponent(подпись),
     );
     if (!res.ok) return [];
     const j = await res.json();
@@ -520,7 +539,7 @@ const искатьФотоOpenverse = async (подпись) => {
 };
 
 // Из нескольких размеров клипа берём самый маленький, который ещё не мелкий:
-// ролик всё равно ужимается до 1000 точек, а лишние мегабайты качаются долго.
+// ролик всё равно ужимается под свой кадр, а лишние мегабайты качаются долго.
 const файлКлипа = (v) => {
   const файлы = (v.video_files ?? []).filter((f) => f.file_type === "video/mp4" && f.link);
   if (!файлы.length) return null;
@@ -528,11 +547,12 @@ const файлКлипа = (v) => {
   return (годные[0] ?? файлы.sort((a, b) => (b.width ?? 0) - (a.width ?? 0))[0]).link;
 };
 
-const искатьКлипы = async (подпись, план) => {
+const искатьКлипы = async (подпись, план, страница = 1) => {
   const найдено = [];
   for (const q of запросы(подпись, план)) {
     const j = await кПексельсу(
-      "https://api.pexels.com/videos/search?per_page=10&orientation=portrait&query=" + encodeURIComponent(q),
+      "https://api.pexels.com/videos/search?per_page=10&orientation=landscape&page=" + страница +
+        "&query=" + encodeURIComponent(q),
     );
     for (const v of j?.videos ?? []) {
       const ссылка = файлКлипа(v);
@@ -551,17 +571,17 @@ const искатьКлипы = async (подпись, план) => {
   return найдено;
 };
 
-const искать = async (подпись, режим, план) => {
+const искать = async (подпись, режим, план, страница = 1) => {
   if (режим === "видео") {
-    const клипы = await искатьКлипы(подпись, план);
+    const клипы = await искатьКлипы(подпись, план, страница);
     if (клипы.length) return клипы;
     // Клипов на это слово может не быть вовсе — дома в таком случае
     // подставляется фотография, здесь поступаем так же.
-    return искатьФотоPexels(подпись, план);
+    return искатьФотоPexels(подпись, план, страница);
   }
-  const фото = await искатьФотоPexels(подпись, план);
+  const фото = await искатьФотоPexels(подпись, план, страница);
   if (фото.length) return фото;
-  return искатьФотоOpenverse(подпись);
+  return искатьФотоOpenverse(подпись, страница);
 };
 
 // ——————————————————————————————————————————————————————————
@@ -579,7 +599,22 @@ const места = () => {
   return список;
 };
 
-const варианты = {}; // «2-top» → найденные картинки, чтобы не искать заново
+// Короткая надпись под кнопками слота — сказать словами, что произошло,
+// вместо молчаливой кнопки, которая будто не работает.
+const строкаПод = (кнопки, текст) => {
+  let где = кнопки.nextElementSibling;
+  if (!где || !где.classList.contains("весть")) {
+    где = document.createElement("div");
+    где.className = "muted весть";
+    где.style.marginTop = "8px";
+    кнопки.after(где);
+  }
+  где.textContent = текст;
+};
+
+const варианты = {}; // «2-top» → показанные картинки, чтобы не искать заново
+const страницы = {}; // «2-top» → до какой страницы выдачи долистали
+const виденное = {}; // «2-top» → адреса, которые уже показывали
 let открытое = null;
 
 const рисоватьСлоты = () => {
@@ -648,11 +683,35 @@ const рисоватьСлоты = () => {
       кнопки.classList.remove("hide");
       открыть.textContent = "Свернуть";
 
+      // «Ещё варианты» листает выдачу дальше и выбрасывает всё, что уже
+      // показывали. Раньше кнопка повторяла тот же запрос и приносила те же
+      // снимки — со стороны выглядело так, будто она не работает вовсе.
       if (!варианты[ключ] || заново) {
         сетка.innerHTML = '<div class="muted" style="grid-column:1/-1">Ищу…</div>';
-        варианты[ключ] = await искать(м.подпись, state.mode, state.shot);
+        страницы[ключ] = заново ? (страницы[ключ] ?? 1) + 1 : (страницы[ключ] ?? 1);
+        виденное[ключ] = виденное[ключ] ?? new Set();
+
+        let новые = [];
+        // Страница могла целиком состоять из уже показанного — шагаем дальше,
+        // но не больше трёх раз, чтобы не молотить сток впустую.
+        for (let шаг = 0; шаг < 3 && !новые.length; шаг += 1) {
+          const порция = await искать(м.подпись, state.mode, state.shot, страницы[ключ]);
+          if (!порция.length) break;
+          новые = порция.filter((в) => !виденное[ключ].has(в.ссылка));
+          if (!новые.length) страницы[ключ] += 1;
+        }
+
+        if (новые.length) {
+          for (const в of новые) виденное[ключ].add(в.ссылка);
+          варианты[ключ] = новые;
+        } else if (заново) {
+          строкаПод(кнопки, доступ.pexels
+            ? "Новых больше нет — показываю прежние. Попробуй изменить слово."
+            : "Новых больше нет. С ключом Pexels выбор заметно шире — он в настройках.");
+        }
       }
-      const список = варианты[ключ];
+
+      const список = варианты[ключ] ?? [];
       if (!список.length) {
         сетка.innerHTML =
           '<div class="muted" style="grid-column:1/-1">Ничего не нашлось. ' +
@@ -728,7 +787,11 @@ const собратьФайл = () => {
     формат: "this-or-that",
     версия: 2,
     создан: new Date().toISOString(),
-    заставка: { фраза: state.hook.trim(), тема: state.edition.trim() },
+    заставка: {
+      фраза: state.hook.trim(),
+      тема: state.edition.trim(),
+      выключена: state.introOn === "нет",
+    },
     концовка: {
       заголовок: "HOW MANY MATCHED?",
       подпись: "tell me in the comments",
@@ -1052,6 +1115,7 @@ $("edition").value = state.edition || "";
 $("mode").value = state.mode || "фото";
 $("shot").value = state.shot || "крупный";
 $("voice").value = state.voice ?? "en-US-GuyNeural";
+$("introOn").value = state.introOn || "да";
 $("ключ-pexels").value = доступ.pexels || "";
 $("токен").value = доступ.токен || "";
 рисовать();
