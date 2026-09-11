@@ -50,7 +50,10 @@
   .steps li:before{content:counter(s);position:absolute;left:0;top:0;width:22px;height:22px;
        border-radius:50%;background:var(--terra);color:#fff;font-size:12px;font-weight:700;
        display:flex;align-items:center;justify-content:center}
-  .hide{display:none}
+  /* Со звёздочкой намеренно: «спрятать» объявлено раньше, чем .vars и
+     .tools, и без неё проигрывало им по порядку — кнопки выбора висели
+     на экране всегда. */
+  .hide{display:none !important}
 
   /* ——— экран проверки картинок ——— */
   .slot{border:1px solid var(--line);border-radius:14px;background:#1f1712;
@@ -316,6 +319,11 @@ const вБазу = (текст) => {
 };
 
 const путь = (p) => p.split("/").map(encodeURIComponent).join("/");
+
+// Адрес картинки для CSS: кавычки и обратные косые экранируем, иначе
+// ссылка развалит правило. CSS.escape тут не годится — он для имён,
+// а не для адресов, и превратил бы «https://» в нечитаемое.
+const вФон = (адрес) => 'url("' + String(адрес).replace(/["\\]/g, "\\$&") + '")';
 
 // Фотографию с телефона ужимаем прямо здесь: иначе выпуск получится
 // в сотню мегабайт и его неудобно ни хранить, ни отправлять.
@@ -597,11 +605,11 @@ const рисоватьСлоты = () => {
         ? '<span class="ok">выбрано · ' + (выбор.вид === "клип" ? "клип" : "фото") + "</span>"
         : '<span class="wait">подберётся само</span>';
 
+    // Картинку ставим не строкой в атрибут, а свойством: ссылка в кавычках
+    // закрывала style="" раньше времени, и превью не появлялось никогда.
     el.innerHTML =
       '<div class="top">' +
-        '<div class="now"' + (превью ? ' style="background-image:url(' + JSON.stringify(превью) + ')"' : "") + ">" +
-          (превью ? "" : "нет") +
-        "</div>" +
+        '<div class="now">' + (превью ? "" : "нет") + "</div>" +
         '<div class="who"><b></b><div class="state">' + состояние + "</div></div>" +
         '<button class="big small ghost открыть">Выбрать</button>' +
       "</div>" +
@@ -613,6 +621,7 @@ const рисоватьСлоты = () => {
       "</div>";
 
     el.querySelector("b").textContent = м.подпись;
+    if (превью) el.querySelector(".now").style.backgroundImage = вФон(превью);
 
     const сетка = el.querySelector(".vars");
     const кнопки = el.querySelector(".tools");
@@ -648,7 +657,7 @@ const рисоватьСлоты = () => {
       список.forEach((в) => {
         const d = document.createElement("div");
         d.className = "v" + (выбор && выбор.ссылка === в.ссылка ? " sel" : "");
-        d.style.backgroundImage = "url(" + JSON.stringify(в.показ || в.ссылка) + ")";
+        d.style.backgroundImage = вФон(в.показ || в.ссылка);
         if (в.вид === "клип") d.innerHTML = '<span class="mark">клип</span>';
         d.addEventListener("click", () => {
           r.picks[м.side] = в;
