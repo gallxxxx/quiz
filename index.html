@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Викторины — сборка выпуска</title>
+<style>
+  :root{ --terra:#C1613C; --terra-dark:#A44E2E; --turq:#12888A; --cream:#F7EFE4;
+         --ink:#1B1310; --gold:#E8B65F; --line:#3a2a22; --panel:#241a15; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--cream);
+       font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:720px;margin:0 auto;padding:18px 16px 120px}
+  h1{font-size:22px;margin:6px 0 4px}
+  h2{font-size:17px;margin:26px 0 8px}
+  .muted{color:#b9a08f;font-size:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+        padding:16px;margin:12px 0}
+  .card.pick{display:flex;gap:14px;align-items:center;cursor:pointer}
+  .card.pick .dot{width:46px;height:46px;border-radius:12px;flex:0 0 auto;
+        background:linear-gradient(150deg,var(--terra),var(--turq))}
+  .card.soon{opacity:.45}
+  label{display:block;font-size:13px;color:#b9a08f;margin:14px 0 5px}
+  input,select{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);
+       background:#1f1712;color:var(--cream);font-size:16px}
+  .pair{border:1px solid var(--line);border-radius:14px;padding:12px;margin:12px 0;background:#1f1712}
+  .pair .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .pair .num{font-weight:700;color:var(--gold);font-size:14px}
+  .pair .kill{background:none;border:0;color:#b9a08f;font-size:20px;padding:0 6px}
+  .side{display:flex;gap:10px;align-items:center;margin-top:8px}
+  .side input{flex:1}
+  .side .photo{width:54px;height:54px;border-radius:10px;border:1px dashed var(--line);
+       background:#2c201a center/cover no-repeat;flex:0 0 auto;display:flex;
+       align-items:center;justify-content:center;font-size:20px;color:#7d6a5c}
+  .row{display:flex;gap:10px;align-items:center;margin-top:10px}
+  .row input[type=range]{flex:1}
+  .pct{width:82px;text-align:center;color:var(--gold);font-weight:700;font-size:14px}
+  button.big{width:100%;padding:16px;border:0;border-radius:14px;font-size:17px;
+       font-weight:700;background:var(--terra);color:#fff;margin-top:12px}
+  button.ghost{background:var(--panel);color:var(--cream);border:1px solid var(--line)}
+  button.turq{background:var(--turq)}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:var(--panel);
+       border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
+  .bar .inner{max-width:720px;margin:0 auto}
+  .steps{counter-reset:s;padding-left:0;list-style:none;margin:10px 0 0}
+  .steps li{counter-increment:s;position:relative;padding-left:30px;margin:8px 0;font-size:14px}
+  .steps li:before{content:counter(s);position:absolute;left:0;top:0;width:22px;height:22px;
+       border-radius:50%;background:var(--terra);color:#fff;font-size:12px;font-weight:700;
+       display:flex;align-items:center;justify-content:center}
+  .hide{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="menu">
+    <h1>Викторины</h1>
+    <div class="muted">Собери выпуск с телефона. Видео потом сделает компьютер.</div>
+
+    <div class="card pick" data-quiz="this-or-that">
+      <div class="dot"></div>
+      <div>
+        <div><b>Это или то</b></div>
+        <div class="muted">Экран пополам, два ответа, таймер и проценты</div>
+      </div>
+    </div>
+
+    <div class="card pick soon">
+      <div class="dot"></div>
+      <div>
+        <div><b>Викторина на 10 пунктов</b></div>
+        <div class="muted">Скоро</div>
+      </div>
+    </div>
+
+    <div class="card pick soon">
+      <div class="dot"></div>
+      <div>
+        <div><b>Угадай по фото</b></div>
+        <div class="muted">Скоро</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="editor" class="hide">
+    <h1>Это или то</h1>
+
+    <h2>Заставка</h2>
+    <div class="card">
+      <label>Крупная фраза</label>
+      <input id="hook" placeholder="IF IT WAS FREE, WHAT WOULD YOU EAT?">
+      <label>Тема выпуска</label>
+      <input id="edition" placeholder="FOOD EDITION">
+      <div class="muted" style="margin-top:8px">Пиши по-английски: по этим словам ещё и картинки ищутся.</div>
+    </div>
+
+    <h2>Вопросы</h2>
+    <div id="pairs"></div>
+    <button class="big ghost" id="add">+ ещё вопрос</button>
+
+    <h2>Как собирать</h2>
+    <div class="card">
+      <label>Что ставить в кадр</label>
+      <select id="mode">
+        <option value="фото">фотографии из интернета</option>
+        <option value="видео">видеоклипы со стока</option>
+        <option value="свое">только мои файлы</option>
+      </select>
+      <label>План съёмки</label>
+      <select id="shot">
+        <option value="крупный">крупный — еда, предметы, цветы</option>
+        <option value="общий">общий — города, природа, машины, животные</option>
+      </select>
+      <label>Голос диктора</label>
+      <select id="voice">
+        <option value="">без голоса</option>
+        <option value="en-US-GuyNeural">мужской, бодрый</option>
+        <option value="en-US-AndrewNeural">мужской, спокойный</option>
+        <option value="en-US-AriaNeural">женский, живой</option>
+        <option value="en-US-JennyNeural">женский, мягкий</option>
+        <option value="en-GB-RyanNeural">британский мужской</option>
+        <option value="en-GB-SoniaNeural">британская женщина</option>
+      </select>
+    </div>
+
+    <h2>Что дальше</h2>
+    <div class="card">
+      <ol class="steps">
+        <li>Нажми «Скачать выпуск» — получится один файл.</li>
+        <li>Перешли его себе на компьютер: телеграм, почта, облако — как удобно.</li>
+        <li>Положи файл в папку «Выпуски с сайта» рядом с кнопками.</li>
+        <li>Нажми кнопку «Забрать выпуск с сайта», потом «Вставить медиафайлы» и «Собрать ролик».</li>
+      </ol>
+    </div>
+
+    <button class="big ghost" id="back">← к списку викторин</button>
+  </div>
+</div>
+
+<div class="bar hide" id="bar">
+  <div class="inner">
+    <button class="big turq" id="save" style="margin:0">Скачать выпуск</button>
+  </div>
+</div>
+
+<input type="file" id="file" accept="image/*" hidden>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const KEY = "викторина-это-или-то";
+
+const ПУСТО = () => ({
+  hook: "IF IT WAS FREE, WHAT WOULD YOU EAT?",
+  edition: "FOOD EDITION",
+  mode: "фото",
+  shot: "крупный",
+  voice: "en-US-GuyNeural",
+  rounds: [
+    { top: "Pizza", bottom: "Burger", pct: 47, photos: {} },
+    { top: "Sushi", bottom: "Tacos", pct: 56, photos: {} },
+    { top: "Pasta", bottom: "Ramen", pct: 44, photos: {} },
+  ],
+});
+
+let state = ПУСТО();
+try {
+  const was = localStorage.getItem(KEY);
+  if (was) state = JSON.parse(was);
+} catch {}
+
+const сохранить = () => {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+};
+
+// ——— фотографию с телефона ужимаем прямо в браузере ———
+// Иначе файл выпуска получится в сотню мегабайт и его неудобно пересылать.
+const ужать = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("файл не читается"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("это не картинка"));
+      img.onload = () => {
+        const size = 1000;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        // режем по центру квадратом — ровно так же, как делает ролик
+        const side = Math.min(img.width, img.height);
+        ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+        const data = canvas.toDataURL("image/jpeg", 0.82);
+        resolve(data.slice(data.indexOf(",") + 1));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+let ждёт = null;
+
+const рисовать = () => {
+  const box = $("pairs");
+  box.innerHTML = "";
+  state.rounds.forEach((r, i) => {
+    const el = document.createElement("div");
+    el.className = "pair";
+    el.innerHTML =
+      '<div class="head"><span class="num">Вопрос ' + (i + 1) + '</span>' +
+      '<button class="kill" title="убрать">✕</button></div>' +
+      '<div class="side"><div class="photo" data-side="top">+</div>' +
+      '<input data-side="top" placeholder="сверху"></div>' +
+      '<div class="side"><div class="photo" data-side="bottom">+</div>' +
+      '<input data-side="bottom" placeholder="снизу"></div>' +
+      '<div class="row"><input type="range" min="20" max="80" value="' + r.pct + '">' +
+      '<div class="pct">' + r.pct + " / " + (100 - r.pct) + "</div></div>";
+
+    const top = el.querySelector('input[data-side="top"]');
+    const bottom = el.querySelector('input[data-side="bottom"]');
+    top.value = r.top;
+    bottom.value = r.bottom;
+    top.addEventListener("input", () => { r.top = top.value; сохранить(); });
+    bottom.addEventListener("input", () => { r.bottom = bottom.value; сохранить(); });
+
+    const range = el.querySelector('input[type="range"]');
+    range.addEventListener("input", () => {
+      r.pct = Number(range.value);
+      el.querySelector(".pct").textContent = r.pct + " / " + (100 - r.pct);
+      сохранить();
+    });
+
+    el.querySelector(".kill").addEventListener("click", () => {
+      if (state.rounds.length <= 1) return;
+      state.rounds.splice(i, 1);
+      сохранить();
+      рисовать();
+    });
+
+    el.querySelectorAll(".photo").forEach((slot) => {
+      const side = slot.dataset.side;
+      if (r.photos && r.photos[side]) {
+        slot.style.backgroundImage = 'url(data:image/jpeg;base64,' + r.photos[side] + ")";
+        slot.textContent = "";
+      }
+      slot.addEventListener("click", () => {
+        ждёт = { round: i, side };
+        $("file").click();
+      });
+    });
+
+    box.appendChild(el);
+  });
+};
+
+$("file").addEventListener("change", async () => {
+  const file = $("file").files[0];
+  if (!file || !ждёт) return;
+  try {
+    const base64 = await ужать(file);
+    const r = state.rounds[ждёт.round];
+    r.photos = r.photos || {};
+    r.photos[ждёт.side] = base64;
+    сохранить();
+    рисовать();
+  } catch (e) {
+    alert("Не вышло: " + e.message);
+  }
+  $("file").value = "";
+  ждёт = null;
+});
+
+$("add").addEventListener("click", () => {
+  state.rounds.push({ top: "", bottom: "", pct: 50, photos: {} });
+  сохранить();
+  рисовать();
+  window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+});
+
+for (const id of ["hook", "edition", "mode", "shot", "voice"]) {
+  $(id).addEventListener("input", () => {
+    state[id === "hook" || id === "edition" ? id : id] = $(id).value;
+    сохранить();
+  });
+}
+
+// ——— файл выпуска ———
+const собратьФайл = () => {
+  const вопросы = state.rounds
+    .filter((r) => (r.top || "").trim() && (r.bottom || "").trim())
+    .map((r) => ({
+      сверху: r.top.trim(),
+      снизу: r.bottom.trim(),
+      процент: r.pct,
+      фото: {
+        сверху: r.photos?.top ? { имя: "сверху.jpg", данные: r.photos.top } : null,
+        снизу: r.photos?.bottom ? { имя: "снизу.jpg", данные: r.photos.bottom } : null,
+      },
+    }));
+
+  return {
+    формат: "this-or-that",
+    версия: 1,
+    создан: new Date().toISOString(),
+    заставка: { фраза: state.hook.trim(), тема: state.edition.trim() },
+    концовка: {
+      заголовок: "HOW MANY MATCHED?",
+      подпись: "tell me in the comments",
+      призыв: "all my best quizzes are on my profile",
+    },
+    вопросы,
+    настройки: {
+      картинки: state.mode,
+      план: state.shot,
+      озвучка: Boolean(state.voice),
+      голос: state.voice || "en-US-GuyNeural",
+    },
+  };
+};
+
+$("save").addEventListener("click", () => {
+  const выпуск = собратьФайл();
+  if (!выпуск.вопросы.length) {
+    alert("Ни одного вопроса не заполнено — впиши хотя бы один.");
+    return;
+  }
+
+  const текст = JSON.stringify(выпуск, null, 1);
+  const blob = new Blob([текст], { type: "application/json" });
+  const имя =
+    "выпуск " +
+    (выпуск.заставка.тема || "без темы").replace(/[\/:*?"<>|]/g, " ").trim() +
+    ".quiz";
+
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = имя;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(a.href);
+    a.remove();
+  }, 1000);
+
+  $("save").textContent = "Скачано ✓  вопросов: " + выпуск.вопросы.length;
+  setTimeout(() => ($("save").textContent = "Скачать выпуск"), 2500);
+});
+
+// ——— переходы между экранами ———
+const открыть = (что) => {
+  $("menu").classList.toggle("hide", что !== "меню");
+  $("editor").classList.toggle("hide", что === "меню");
+  $("bar").classList.toggle("hide", что === "меню");
+  window.scrollTo(0, 0);
+};
+
+document.querySelectorAll(".card.pick").forEach((card) => {
+  card.addEventListener("click", () => {
+    if (card.classList.contains("soon")) {
+      alert("Эта викторина ещё не готова — скоро добавим.");
+      return;
+    }
+    открыть("редактор");
+  });
+});
+
+$("back").addEventListener("click", () => открыть("меню"));
+
+// ——— первый показ ———
+$("hook").value = state.hook || "";
+$("edition").value = state.edition || "";
+$("mode").value = state.mode || "фото";
+$("shot").value = state.shot || "крупный";
+$("voice").value = state.voice ?? "en-US-GuyNeural";
+рисовать();
+открыть("меню");
+</script>
+</body>
+</html>
