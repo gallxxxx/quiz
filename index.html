@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Викторины">
 <link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.webmanifest">
 <style>
   :root{ --terra:#C1613C; --terra-dark:#A44E2E; --turq:#12888A; --cream:#F7EFE4;
          --ink:#1B1310; --gold:#E8B65F; --line:#3a2a22; --panel:#241a15; }
@@ -141,6 +142,9 @@
       </div>
     </div>
 
+    <button class="big ghost" id="на-экран">Поставить значок на экран</button>
+    <div class="muted hide" id="как-на-экран" style="margin-top:8px"></div>
+
     <button class="big ghost" id="кнопка-настройки">Настройки доступа</button>
   </div>
 
@@ -204,8 +208,10 @@
     <div class="card" id="подсказка-картинки">
       <div class="muted">
         Нажми на любую строчку — покажу варианты. Выбираешь тот, что нравится.
-        Можно поставить своё фото с телефона. Что не выберешь — подберётся само
-        при сборке.
+        Можно поставить своё фото с телефона.
+        Что не выберешь — подберётся само при сборке, но вслепую: там
+        уже никто не смотрит, и вместо суши может приехать что угодно.
+        Лучше пройти все строчки.
       </div>
     </div>
 
@@ -229,6 +235,11 @@
     </div>
 
     <div id="сборки"></div>
+
+    <h2>Все готовые ролики</h2>
+    <div class="muted">Лежат на GitHub и никуда не пропадают — даже если
+    почистить браузер или сменить телефон.</div>
+    <div id="архив"></div>
 
     <button class="big ghost" id="назад-к-картинкам">← вернуться к картинкам</button>
   </div>
@@ -677,7 +688,7 @@ const рисоватьСлоты = () => {
       ? '<span class="ok">своё фото</span>'
       : выбор
         ? '<span class="ok">выбрано · ' + (выбор.вид === "клип" ? "клип" : "фото") + "</span>"
-        : '<span class="wait">подберётся само</span>';
+        : '<span class="wait">подберётся вслепую</span>';
 
     // Картинку ставим не строкой в атрибут, а свойством: ссылка в кавычках
     // закрывала style="" раньше времени, и превью не появлялось никогда.
@@ -942,6 +953,15 @@ const когдаТекст = (мс) => {
   return два(d.getHours()) + ":" + два(d.getMinutes());
 };
 
+// «7 минут 12 секунд» вместо «432 с»: так понятнее без счёта в уме.
+const длилось = (секунд) => {
+  if (!Number.isFinite(секунд) || секунд <= 0) return "";
+  const м = Math.floor(секунд / 60);
+  const с = секунд % 60;
+  if (!м) return с + " сек";
+  return м + " мин" + (с ? " " + с + " сек" : "");
+};
+
 const рисоватьСборки = () => {
   const box = $("сборки");
   box.innerHTML = "";
@@ -962,9 +982,11 @@ const рисоватьСборки = () => {
     const вид = р.конец === "success" ? "done" : р.конец ? "fail" : "go";
     const словами = ПО_РУССКИ[р.состояние] ?? р.состояние ?? "";
 
+    const сколько = длилось(р.секунд);
     el.innerHTML =
       '<div class="тема"></div>' +
-      '<div class="когда">начато в ' + когдаТекст(р.начало) + "</div>" +
+      '<div class="когда">начато в ' + когдаТекст(р.начало) +
+        (сколько ? " · собралось за " + сколько : "") + "</div>" +
       '<div class="как"><span class="lamp ' + вид + '"></span><span class="словами"></span></div>';
     el.querySelector(".тема").textContent = р.тема || "без темы";
     el.querySelector(".словами").textContent = словами;
@@ -1042,6 +1064,14 @@ const опроситьВсе = async () => {
     р.конец = запуск.conclusion;
     менялось = true;
 
+    // Сколько шла сборка — берём у самого GitHub, а не считаем по своим
+    // опросам: страницу могли закрыть, и наше время было бы враньём.
+    const начал = Date.parse(запуск.run_started_at ?? запуск.created_at);
+    const кончил = Date.parse(запуск.updated_at);
+    if (Number.isFinite(начал) && Number.isFinite(кончил) && кончил > начал) {
+      р.секунд = Math.round((кончил - начал) / 1000);
+    }
+
     if (запуск.conclusion !== "success") {
       р.беда = "Подробности: " + запуск.html_url;
       continue;
@@ -1085,6 +1115,53 @@ const следить = async () => {
 
   await шаг();
   if (!слежка && работы.some((р) => !р.конец)) слежка = setInterval(шаг, 15000);
+};
+
+// Постоянный список роликов. Берём его у GitHub, а не из памяти телефона:
+// в памяти помещается восемь последних, и она теряется вместе с данными
+// браузера, а сами файлы лежат вечно. Репозиторий с роликами открытый,
+// поэтому никакого токена тут не нужно.
+const показатьАрхив = async () => {
+  const box = $("архив");
+  box.innerHTML = '<div class="muted">Смотрю…</div>';
+  try {
+    const res = await fetch("https://api.github.com/repos/" + РЕПО_ВИДЕО + "/releases?per_page=30");
+    if (!res.ok) throw new Error("не отдалось");
+    const список = await res.json();
+
+    const ролики = [];
+    for (const р of список) {
+      const файл = (р.assets ?? []).find((a) => a.name.toLowerCase().endsWith(".mp4"));
+      if (файл) ролики.push({ имя: файл.name, ссылка: файл.browser_download_url, вес: файл.size, когда: р.published_at || р.created_at });
+    }
+
+    if (!ролики.length) {
+      box.innerHTML = '<div class="muted">Пока ни одного.</div>';
+      return;
+    }
+
+    box.innerHTML = "";
+    for (const р of ролики) {
+      const d = new Date(р.когда);
+      const два = (x) => String(x).padStart(2, "0");
+      const el = document.createElement("div");
+      el.className = "работа";
+      el.innerHTML =
+        '<div class="тема"></div>' +
+        '<div class="когда">' + два(d.getDate()) + "." + два(d.getMonth() + 1) + "." + d.getFullYear() +
+          " · " + (р.вес / 1024 / 1024).toFixed(1) + " МБ</div>";
+      // Имя файла показываем как есть: в нём дата и тема выпуска.
+      el.querySelector(".тема").textContent = р.имя.replace(/\.mp4$/i, "");
+      const a = document.createElement("a");
+      a.className = "качать";
+      a.href = р.ссылка;
+      a.textContent = "Скачать";
+      el.appendChild(a);
+      box.appendChild(el);
+    }
+  } catch (e) {
+    box.innerHTML = '<div class="muted">Не дозвонился до GitHub: ' + e.message + ". Обнови страницу.</div>";
+  }
 };
 
 const отправить = async () => {
@@ -1148,6 +1225,30 @@ const отправить = async () => {
 // ——————————————————————————————————————————————————————————
 //  Настройки доступа
 // ——————————————————————————————————————————————————————————
+// ——— значок на экран «Домой» ———
+// Андроид умеет поставить его сам, если браузер предложит. Айфон так
+// не умеет — там это делается через «Поделиться», поэтому просто
+// показываем, куда нажать.
+let предложение = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  предложение = e;
+});
+
+$("на-экран").addEventListener("click", async () => {
+  if (предложение) {
+    предложение.prompt();
+    предложение = null;
+    return;
+  }
+  const айфон = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const где = $("как-на-экран");
+  где.classList.remove("hide");
+  где.textContent = айфон
+    ? "На айфоне: нажми кнопку «Поделиться» внизу браузера (квадрат со стрелкой вверх), пролистай список и выбери «На экран „Домой“»."
+    : "В меню браузера (три точки) выбери «Установить приложение» или «Добавить на главный экран».";
+});
+
 $("выпуск-файлом").addEventListener("click", скачатьФайлом);
 
 $("сохранить-настройки").addEventListener("click", () => {
@@ -1231,6 +1332,7 @@ const открытьЭкран = (что) => {
     // Слежку не заводим повторно, если она уже идёт с этого захода.
     рисоватьСборки();
     следить();
+    показатьАрхив();
   } else {
     панель([]);
   }
