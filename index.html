@@ -212,6 +212,11 @@
         Что не выберешь — подберётся само при сборке, но вслепую: там
         уже никто не смотрит, и вместо суши может приехать что угодно.
         Лучше пройти все строчки.
+        <br><br>
+        Своё видео тоже можно — обрежь его в галерее секунд до десяти.
+        Только учти: видео держится до отправки. Закроешь страницу
+        и вернёшься позже — его придётся выбрать заново (фотографии
+        так не теряются).
       </div>
     </div>
 
@@ -281,7 +286,7 @@
   <div class="inner" id="панель"></div>
 </div>
 
-<input type="file" id="file" accept="image/*" hidden>
+<input type="file" id="file" accept="image/*,video/*" hidden>
 
 <script>
 "use strict";
@@ -411,7 +416,54 @@ const ужать = (file) =>
 // ——————————————————————————————————————————————————————————
 //  Редактор вопросов
 // ——————————————————————————————————————————————————————————
-let ждёт = null; // куда положить фото, которое сейчас выбирают
+let ждёт = null; // куда положить файл, который сейчас выбирают
+
+// Свои ВИДЕО держим только в памяти страницы, а не в localStorage:
+// туда помещается пять-десять мегабайт, а ролик с телефона весит
+// десятки. Поэтому видео живёт до отправки — об этом честно написано
+// на экране. Фотографии маленькие, они по-прежнему хранятся в черновике.
+const свои = {};
+
+// Первый кадр — чтобы в строчке было видно, что именно выбрали.
+const кадрИзВидео = (file) =>
+  new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.muted = true;
+    v.playsInline = true;
+    const убрать = () => URL.revokeObjectURL(url);
+    v.onerror = () => { убрать(); reject(new Error("видео не читается")); };
+    v.onloadeddata = () => {
+      try {
+        const Ш = 320;
+        const В = Math.max(1, Math.round((v.videoHeight / v.videoWidth) * Ш)) || 180;
+        const canvas = document.createElement("canvas");
+        canvas.width = Ш;
+        canvas.height = В;
+        canvas.getContext("2d").drawImage(v, 0, 0, Ш, В);
+        убрать();
+        resolve(canvas.toDataURL("image/jpeg", 0.7));
+      } catch (e) {
+        убрать();
+        reject(e);
+      }
+    };
+    // немного отступаем от нуля: у самого начала часто чёрный кадр
+    v.onloadedmetadata = () => { v.currentTime = Math.min(0.5, (v.duration || 1) / 4); };
+    v.src = url;
+  });
+
+const вБазуФайл = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("файл не читается"));
+    reader.onload = () => {
+      const d = String(reader.result);
+      resolve(d.slice(d.indexOf(",") + 1));
+    };
+    reader.readAsDataURL(file);
+  });
 
 const рисовать = () => {
   const box = $("pairs");
@@ -467,16 +519,44 @@ const рисовать = () => {
   });
 };
 
+// Сколько весит самый большой свой ролик, который мы берём. Дальше
+// начинаются беды: страница держит его в памяти, потом он едет
+// на GitHub внутри файла выпуска, и телефон на мобильном интернете
+// такое отправляет минутами. Десять секунд с телефона — это 10-20 МБ.
+const ВИДЕО_МАКС = 40 * 1024 * 1024;
+
 $("file").addEventListener("change", async () => {
   const file = $("file").files[0];
   if (!file || !ждёт) return;
   const куда = ждёт;
+  const ключ = куда.round + "-" + куда.side;
+
   try {
-    const base64 = await ужать(file);
     const r = state.rounds[куда.round];
     r.photos = r.photos || {};
-    r.photos[куда.side] = base64;
-    r.picks[куда.side] = null; // своё фото главнее любого найденного
+
+    if (file.type.startsWith("video/")) {
+      if (file.size > ВИДЕО_МАКС) {
+        alert(
+          "Этот ролик слишком тяжёлый — " + (file.size / 1024 / 1024).toFixed(0) + " МБ.\n\n" +
+          "Обрежь его в галерее телефона секунд до десяти и выбери снова: " +
+          "в кадре всё равно показывается только восемь секунд."
+        );
+        $("file").value = "";
+        ждёт = null;
+        return;
+      }
+      const [данные, кадр] = await Promise.all([вБазуФайл(file), кадрИзВидео(file)]);
+      свои[ключ] = { имя: file.name || "своё.mp4", данные, кадр };
+      delete r.photos[куда.side];   // фото и видео на одном месте не уживаются
+      r.picks[куда.side] = null;    // своё главнее найденного
+    } else {
+      const base64 = await ужать(file);
+      r.photos[куда.side] = base64;
+      delete свои[ключ];
+      r.picks[куда.side] = null;
+    }
+
     сохранить();
     if (куда.откуда === "редактор") рисовать();
     else рисоватьСлоты();
@@ -673,17 +753,23 @@ const рисоватьСлоты = () => {
     const el = document.createElement("div");
     el.className = "slot";
 
-    const превью = своё
-      ? "data:image/jpeg;base64," + своё
-      : выбор
-        ? выбор.показ || выбор.ссылка
-        : "";
+    const своёВидео = свои[ключ];
 
-    const состояние = своё
-      ? '<span class="ok">своё фото</span>'
-      : выбор
-        ? '<span class="ok">выбрано · ' + (выбор.вид === "клип" ? "клип" : "фото") + "</span>"
-        : '<span class="wait">подберётся вслепую</span>';
+    const превью = своёВидео
+      ? своёВидео.кадр
+      : своё
+        ? "data:image/jpeg;base64," + своё
+        : выбор
+          ? выбор.показ || выбор.ссылка
+          : "";
+
+    const состояние = своёВидео
+      ? '<span class="ok">своё видео</span>'
+      : своё
+        ? '<span class="ok">своё фото</span>'
+        : выбор
+          ? '<span class="ok">выбрано · ' + (выбор.вид === "клип" ? "клип" : "фото") + "</span>"
+          : '<span class="wait">подберётся вслепую</span>';
 
     // Картинку ставим не строкой в атрибут, а свойством: ссылка в кавычках
     // закрывала style="" раньше времени, и превью не появлялось никогда.
@@ -696,7 +782,7 @@ const рисоватьСлоты = () => {
       '<div class="vars hide"></div>' +
       '<div class="tools hide">' +
         '<button class="big small ghost ещё">Ещё варианты</button>' +
-        '<button class="big small ghost моё">Своё фото</button>' +
+        '<button class="big small ghost моё">Своё фото или видео</button>' +
         '<button class="big small ghost сброс">Пусть подберётся само</button>' +
       "</div>";
 
@@ -782,6 +868,7 @@ const рисоватьСлоты = () => {
     el.querySelector(".сброс").addEventListener("click", () => {
       r.picks[м.side] = null;
       delete r.photos[м.side];
+      delete свои[ключ];
       сохранить();
       рисоватьСлоты();
     });
@@ -793,6 +880,16 @@ const рисоватьСлоты = () => {
 // ——————————————————————————————————————————————————————————
 //  Файл выпуска
 // ——————————————————————————————————————————————————————————
+// Что человек положил сам: фотография из черновика или видео из памяти.
+// Имя важно: по расширению приёмник понимает, картинка это или ролик.
+const своёДля = (r, i, side) => {
+  const видео = свои[i + "-" + side];
+  if (видео) return { имя: видео.имя, данные: видео.данные };
+  const фото = r.photos?.[side];
+  if (фото) return { имя: (side === "top" ? "сверху" : "снизу") + ".jpg", данные: фото };
+  return null;
+};
+
 const собратьФайл = () => {
   const вопросы = state.rounds
     .filter((r) => (r.top || "").trim() && (r.bottom || "").trim())
@@ -813,8 +910,8 @@ const собратьФайл = () => {
         снизу: r.bottom.trim(),
         процент: r.pct,
         фото: {
-          сверху: r.photos?.top ? { имя: "сверху.jpg", данные: r.photos.top } : null,
-          снизу: r.photos?.bottom ? { имя: "снизу.jpg", данные: r.photos.bottom } : null,
+          сверху: своёДля(r, i, "top"),
+          снизу: своёДля(r, i, "bottom"),
         },
         картинки: { сверху: картинка("top"), снизу: картинка("bottom") },
       };
