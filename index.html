@@ -236,11 +236,6 @@
 
     <div id="сборки"></div>
 
-    <h2>Все готовые ролики</h2>
-    <div class="muted">Лежат на GitHub и никуда не пропадают — даже если
-    почистить браузер или сменить телефон.</div>
-    <div id="архив"></div>
-
     <button class="big ghost" id="назад-к-картинкам">← вернуться к картинкам</button>
   </div>
 
@@ -923,9 +918,10 @@ try {
 } catch {}
 
 const запомнитьРаботы = () => {
-  // Больше восьми не храним: список на телефоне должен читаться,
-  // а скачанные ролики всё равно лежат в галерее.
-  работы = работы.slice(0, 8);
+  // Семь последних — так решили. Список живёт в памяти ЭТОГО телефона,
+  // поэтому каждый видит только свои сборки: Вика свои, подруга свои.
+  // Ролики старше семи убираются и с GitHub, чтобы архив не копился.
+  работы = работы.slice(0, 7);
   try { localStorage.setItem(KEY_РАБОТЫ, JSON.stringify(работы)); } catch {}
 };
 
@@ -1117,53 +1113,6 @@ const следить = async () => {
   if (!слежка && работы.some((р) => !р.конец)) слежка = setInterval(шаг, 15000);
 };
 
-// Постоянный список роликов. Берём его у GitHub, а не из памяти телефона:
-// в памяти помещается восемь последних, и она теряется вместе с данными
-// браузера, а сами файлы лежат вечно. Репозиторий с роликами открытый,
-// поэтому никакого токена тут не нужно.
-const показатьАрхив = async () => {
-  const box = $("архив");
-  box.innerHTML = '<div class="muted">Смотрю…</div>';
-  try {
-    const res = await fetch("https://api.github.com/repos/" + РЕПО_ВИДЕО + "/releases?per_page=30");
-    if (!res.ok) throw new Error("не отдалось");
-    const список = await res.json();
-
-    const ролики = [];
-    for (const р of список) {
-      const файл = (р.assets ?? []).find((a) => a.name.toLowerCase().endsWith(".mp4"));
-      if (файл) ролики.push({ имя: файл.name, ссылка: файл.browser_download_url, вес: файл.size, когда: р.published_at || р.created_at });
-    }
-
-    if (!ролики.length) {
-      box.innerHTML = '<div class="muted">Пока ни одного.</div>';
-      return;
-    }
-
-    box.innerHTML = "";
-    for (const р of ролики) {
-      const d = new Date(р.когда);
-      const два = (x) => String(x).padStart(2, "0");
-      const el = document.createElement("div");
-      el.className = "работа";
-      el.innerHTML =
-        '<div class="тема"></div>' +
-        '<div class="когда">' + два(d.getDate()) + "." + два(d.getMonth() + 1) + "." + d.getFullYear() +
-          " · " + (р.вес / 1024 / 1024).toFixed(1) + " МБ</div>";
-      // Имя файла показываем как есть: в нём дата и тема выпуска.
-      el.querySelector(".тема").textContent = р.имя.replace(/\.mp4$/i, "");
-      const a = document.createElement("a");
-      a.className = "качать";
-      a.href = р.ссылка;
-      a.textContent = "Скачать";
-      el.appendChild(a);
-      box.appendChild(el);
-    }
-  } catch (e) {
-    box.innerHTML = '<div class="muted">Не дозвонился до GitHub: ' + e.message + ". Обнови страницу.</div>";
-  }
-};
-
 const отправить = async () => {
   const выпуск = собратьФайл();
   if (!выпуск.вопросы.length) {
@@ -1332,7 +1281,6 @@ const открытьЭкран = (что) => {
     // Слежку не заводим повторно, если она уже идёт с этого захода.
     рисоватьСборки();
     следить();
-    показатьАрхив();
   } else {
     панель([]);
   }
