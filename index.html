@@ -374,14 +374,19 @@
       </div>
       <div class="поле">
         <label for="q10-голос">Голос диктора</label>
-        <select id="q10-голос">
-          <option value="en-US-GuyNeural">Мужской, американский (Guy)</option>
-          <option value="en-US-AndrewNeural">Мужской, спокойный (Andrew)</option>
-          <option value="en-US-AriaNeural">Женский, американский (Aria)</option>
-          <option value="en-US-JennyNeural">Женский, мягкий (Jenny)</option>
-          <option value="en-GB-RyanNeural">Мужской, британский (Ryan)</option>
-          <option value="en-GB-SoniaNeural">Женский, британский (Sonia)</option>
-        </select>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="q10-голос" style="flex:1">
+            <option value="en-US-GuyNeural">Мужской, американский (Guy)</option>
+            <option value="en-US-AndrewNeural">Мужской, спокойный (Andrew)</option>
+            <option value="en-US-AriaNeural">Женский, американский (Aria)</option>
+            <option value="en-US-JennyNeural">Женский, мягкий (Jenny)</option>
+            <option value="en-GB-RyanNeural">Мужской, британский (Ryan)</option>
+            <option value="en-GB-SoniaNeural">Женский, британский (Sonia)</option>
+          </select>
+          <button type="button" id="q10-голос-слушать" class="слушать"
+                  aria-label="Послушать голос">▶</button>
+        </div>
+        <div class="muted" id="q10-голос-весть" style="margin-top:6px"></div>
       </div>
       <div class="поле">
         <label for="q10-звук">Звук таймера</label>
@@ -2351,57 +2356,74 @@ function q10ПослеПеревода(данные) {
   открытьЭкран("q10pics");
 }
 
-// ——— послушать звук таймера ———
-// Образцы лежат рядом со страницей: три удара отсчёта и звук ответа,
-// сделанные теми же функциями, что звучат в ролике. Не «похожий»
-// звук, а тот самый.
+// ——— послушать звук таймера и голос диктора ———
+// Выбирать их по названию — гадание: «капли» и «вода» на слух разные,
+// а «Guy» и «Andrew» по имени не отличишь вовсе. Пересобирать ролик
+// ради этого — десять минут. Образцы лежат рядом со страницей и
+// сделаны тем же, чем звучит ролик: звуки — теми же функциями,
+// голоса — тем же синтезатором, с той же скоростью и громкостью.
 let q10Проигрыш = null;
+let q10Кнопка = null;
 
-const q10Слушать = () => {
-  const кнопка = $("q10-послушать");
-  const весть = $("q10-звук-весть");
-  if (q10Проигрыш) {
-    q10Проигрыш.pause();
-    q10Проигрыш = null;
-    кнопка.classList.remove("играет");
-    кнопка.textContent = "▶";
-    return;
+const q10Тихо = () => {
+  if (q10Проигрыш) q10Проигрыш.pause();
+  q10Проигрыш = null;
+  if (q10Кнопка) {
+    q10Кнопка.classList.remove("играет");
+    q10Кнопка.textContent = "▶";
   }
-  const имя = $("q10-звук").value;
-  if (имя === "тишина") {
-    весть.textContent = "Тишина — отсчёт не звучит, остаётся только голос.";
-    return;
-  }
+  q10Кнопка = null;
+};
+
+const q10Проиграть = (кнопка, весть, адрес) => {
+  const было = q10Кнопка;
+  q10Тихо();
+  if (было === кнопка) return;        // второе нажатие — просто выключить
   весть.textContent = "";
-  const звук = new Audio("звуки/" + encodeURIComponent(имя) + ".mp3");
-  звук.addEventListener("ended", () => {
-    q10Проигрыш = null;
-    кнопка.classList.remove("играет");
-    кнопка.textContent = "▶";
-  });
-  звук.addEventListener("error", () => {
-    q10Проигрыш = null;
-    кнопка.classList.remove("играет");
-    кнопка.textContent = "▶";
-    весть.textContent = "Образец не загрузился — проверь связь.";
-  });
+  const звук = new Audio(адрес);
+  const кончилось = (почему) => {
+    q10Тихо();
+    if (почему) весть.textContent = почему;
+  };
+  звук.addEventListener("ended", () => кончилось(""));
+  звук.addEventListener("error",
+    () => кончилось("Образец не загрузился — проверь связь."));
   звук.play().then(() => {
     q10Проигрыш = звук;
+    q10Кнопка = кнопка;
     кнопка.classList.add("играет");
     кнопка.textContent = "■";
   }).catch(() => {
-    весть.textContent = "Браузер не дал проиграть звук — нажми ещё раз.";
+    весть.textContent = "Браузер не дал проиграть — нажми ещё раз.";
   });
 };
 
-$("q10-послушать").addEventListener("click",
-  безопасно("послушать звук", q10Слушать));
-// Поменяли звук во время проигрывания — старый обрываем, иначе
+$("q10-послушать").addEventListener("click", безопасно("послушать звук", () => {
+  const имя = $("q10-звук").value;
+  if (имя === "тишина") {
+    q10Тихо();
+    $("q10-звук-весть").textContent =
+      "Тишина — отсчёт не звучит, остаётся только голос диктора.";
+    return;
+  }
+  q10Проиграть($("q10-послушать"), $("q10-звук-весть"),
+               "звуки/" + encodeURIComponent(имя) + ".mp3");
+}));
+
+$("q10-голос-слушать").addEventListener("click", безопасно("послушать голос",
+  () => q10Проиграть($("q10-голос-слушать"), $("q10-голос-весть"),
+                     "голоса/" + encodeURIComponent($("q10-голос").value)
+                     + ".mp3")));
+
+// Поменяли выбор во время проигрывания — старое обрываем, иначе
 // в наушниках наложатся два.
-$("q10-звук").addEventListener("change", () => {
-  if (q10Проигрыш) q10Слушать();
-  $("q10-звук-весть").textContent = "";
-});
+for (const [список, весть] of [["q10-звук", "q10-звук-весть"],
+                               ["q10-голос", "q10-голос-весть"]]) {
+  $(список).addEventListener("change", () => {
+    q10Тихо();
+    $(весть).textContent = "";
+  });
+}
 
 // ——— шаг 3: картинки ———
 const q10Варианты = {};   // номер пункта → показанные картинки
