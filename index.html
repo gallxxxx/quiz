@@ -1765,7 +1765,19 @@ const q10РисоватьРаботы = () => {
     const слева = document.createElement("div");
     слева.style.cssText = "flex:1;min-width:0;cursor:pointer";
     const имя = document.createElement("b");
-    имя.textContent = в.тема || в.имя || в.ид;
+    // Своё название главнее машинного: выпусков в списке до восьми, и
+    // «свой текст» рядом с «свой текст» не различить никак.
+    имя.textContent = в.своёИмя || в.тема || в.имя || в.ид;
+    имя.title = "Нажми дважды, чтобы переименовать";
+    имя.addEventListener("dblclick", безопасно("переименовать", (e) => {
+      e.stopPropagation();
+      const было = в.своёИмя || в.тема || в.имя || "";
+      const стало = prompt("Как назвать этот выпуск?", было);
+      if (стало === null) return;
+      в.своёИмя = стало.trim();
+      q10Помнить();
+      q10РисоватьРаботы();
+    }));
     const как = document.createElement("div");
     как.className = "muted";
     как.textContent = q10Словами(в)
