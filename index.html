@@ -76,6 +76,13 @@
      на экране всегда. */
   .hide{display:none !important}
 
+  /* ——— превью оформления ——— */
+  /* Слово «терракота» на телефоне ничего не говорит, поэтому под выбором
+     показываем сами половины — сверху и снизу, как они лягут в кадр. */
+  .гамма{height:44px;border-radius:10px;overflow:hidden;margin-top:8px;
+        border:1px solid var(--line);display:flex;flex-direction:column}
+  .гамма i{flex:1}
+
   /* ——— экран проверки картинок ——— */
   .slot{border:1px solid var(--line);border-radius:14px;background:#1f1712;
         padding:12px;margin:12px 0}
@@ -197,6 +204,19 @@
       <select id="shot">
         <option value="крупный">крупный — еда, предметы, цветы</option>
         <option value="общий">общий — города, природа, машины, животные</option>
+      </select>
+      <label>Оформление</label>
+      <select id="theme">
+        <option value="терракота">терракота и бирюза — как было</option>
+        <option value="красный-синий">красный и синий</option>
+        <option value="розовый-голубой">розовый и голубой</option>
+      </select>
+      <div class="гамма" id="гамма-превью"><i></i><i></i></div>
+      <label>Край картинки</label>
+      <select id="edge">
+        <option value="рамка">в кремовой рамке, углы скруглённые</option>
+        <option value="острый">без рамки, углы острые</option>
+        <option value="размытый">без рамки, края растворяются в фоне</option>
       </select>
       <label>Голос диктора</label>
       <select id="voice">
@@ -931,9 +951,27 @@ $("add").addEventListener("click", () => {
   window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
 });
 
-for (const id of ["hook", "edition", "mode", "shot", "voice", "introOn"]) {
+// Цвета половин — только для превью на этой странице. Ролик красит себя
+// сам по выбранному слову: сюда числа переписаны из THEMES
+// (src/thisorthat-data.ts). Разъедутся — обманет полоска на сайте,
+// но не ролик.
+const ГАММЫ = {
+  "терракота": ["#C1613C", "#12888A"],
+  "красный-синий": ["#D12E2E", "#2340B8"],
+  "розовый-голубой": ["#E23A63", "#2B7FD4"],
+};
+
+const рисоватьГамму = () => {
+  const [верх, низ] = ГАММЫ[state.theme] ?? ГАММЫ["терракота"];
+  const полосы = $("гамма-превью").children;
+  полосы[0].style.background = верх;
+  полосы[1].style.background = низ;
+};
+
+for (const id of ["hook", "edition", "mode", "shot", "voice", "introOn", "theme", "edge"]) {
   $(id).addEventListener("input", () => {
     state[id] = $(id).value;
+    if (id === "theme") рисоватьГамму();
     сохранить();
   });
 }
@@ -1299,6 +1337,8 @@ const собратьФайл = () => {
       план: state.shot,
       озвучка: Boolean(state.voice),
       голос: state.voice || "en-US-GuyNeural",
+      цвета: state.theme || "терракота",
+      край: state.edge || "острый",
     },
   };
 };
@@ -3963,6 +4003,9 @@ $("edition").value = state.edition || "";
 $("mode").value = state.mode || "фото";
 $("shot").value = state.shot || "крупный";
 $("voice").value = state.voice ?? "en-US-GuyNeural";
+$("theme").value = state.theme || "терракота";
+$("edge").value = state.edge || "острый";
+рисоватьГамму();
 $("introOn").value = state.introOn || "да";
 $("ключ-pexels").value = доступ.pexels || "";
 $("токен").value = доступ.токен || "";
