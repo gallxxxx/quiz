@@ -3155,6 +3155,11 @@ const q10РисоватьРаботы = () => {
     const слева = document.createElement("div");
     слева.style.cssText = "flex:1;min-width:0;cursor:pointer";
     const имя = document.createElement("b");
+    // Имя скачанного тиктока — тридцать знаков без пробелов, и оно
+    // заезжало под кнопки «✎» и «Прекратить»: на снимке у Вики видно,
+    // как они лежат прямо поверх текста. Обрезаем многоточием.
+    имя.style.cssText = "display:block;overflow:hidden;text-overflow:ellipsis;"
+      + "white-space:nowrap";
     // Своё название главнее машинного: выпусков в списке до восьми, и
     // «свой текст» рядом с «свой текст» не различить никак.
     имя.textContent = имяРаботы(в);
