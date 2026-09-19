@@ -121,6 +121,15 @@
        width:20px;height:20px;border-radius:50%;border:2px solid #C1613C;
        color:#3a2b22;display:flex;align-items:center;justify-content:center;
        font-weight:800;font-size:8px;background:rgba(255,253,248,.9)}
+  /* ДОМОЙ. Кнопка «к списку викторин» была только внизу экрана, под
+     всей формой: чтобы сменить викторину, приходилось листать до конца.
+     Теперь она сверху и на каждом экране — на одном и том же месте. */
+  .шапка{display:flex;align-items:center;gap:8px;margin:2px 0 6px}
+  .шапка button{width:auto;margin:0;padding:8px 12px;font-size:14px;
+       background:var(--panel);color:var(--cream);border:1px solid var(--line);
+       border-radius:11px;font-weight:600}
+  .шапка .где{color:#b9a08f;font-size:13px;flex:1;min-width:0;
+       overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .шаги{display:flex;gap:6px;margin:10px 0 14px}
   .шаги .шаг{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);
        border-radius:11px;padding:8px 6px;text-align:center;font-size:12px;
@@ -250,6 +259,10 @@
 
   <!-- Полоса шагов и сообщения — общие на все экраны: так человек видит
        их на одном и том же месте, а не ищет каждый раз заново. -->
+  <div class="шапка hide" id="шапка">
+    <button type="button" id="домой">☰ Все викторины</button>
+    <span class="где" id="шапка-где"></span>
+  </div>
   <div class="шаги hide" id="полоса-шагов"></div>
   <div id="вести"></div>
 
@@ -1300,10 +1313,24 @@ const докудаДошёл = (формат) => {
   return 0;
 };
 
+const ИМЯ_ФОРМАТА = {
+  "это-или-то": "Это или то",
+  "викторина": "Викторина на 10 пунктов",
+  "пары": "Тест для пар",
+};
+
 const нарисоватьШаги = (экран) => {
   const полоса = document.getElementById("полоса-шагов");
   if (!полоса) return;
   const формат = форматЭкрана(экран);
+  // Шапка с «домой» — на каждом экране, кроме самой главной: уйти к
+  // другой викторине можно было только кнопкой в самом низу формы.
+  const шапка = document.getElementById("шапка");
+  if (шапка) {
+    шапка.classList.toggle("hide", экран === "menu");
+    const где = document.getElementById("шапка-где");
+    if (где) где.textContent = формат ? ИМЯ_ФОРМАТА[формат] || "" : "";
+  }
   полоса.classList.toggle("hide", !формат);
   if (!формат) return;
   const шаги = ШАГИ_ФОРМАТА[формат];
@@ -3105,14 +3132,21 @@ const q10РисоватьРаботы = () => {
   const где = $("q10-работы");
   где.innerHTML = "";
   if (!q10Работы.length) { рисоватьГлавную(); return; }
+  // ЗДЕСЬ — ТОЛЬКО СВОИ. Экран открыт из конкретной викторины, и чужие
+  // выпуски на нём сбивают: Вика открыла «десять пунктов», а в списке
+  // внизу лежит тест для пар. Все три формата вперемешку живут на
+  // главной — там это и нужно, там у каждой строчки написана викторина.
+  const мои = q10Работы.filter((в) =>
+    (в.вид === "пары" ? "пары" : "викторина") === видНового);
+  if (!мои.length) { рисоватьГлавную(); return; }
   const шапка = document.createElement("div");
   шапка.className = "muted";
   шапка.style.margin = "16px 0 6px";
-  шапка.textContent = "Выпуски в работе — их " + q10Работы.length
+  шапка.textContent = "Выпуски в работе — их " + мои.length
     + " из " + Q10_ПОМНИМ + ". Машина считает их одновременно,"
     + " возвращайся к любому, когда он тебя дождётся.";
   где.appendChild(шапка);
-  q10Работы.forEach((в) => {
+  мои.forEach((в) => {
     const строка = document.createElement("div");
     строка.className = "card";
 
@@ -5514,6 +5548,8 @@ $("ключ-pexels").value = доступ.pexels || "";
 $("токен").value = доступ.токен || "";
 рисовать();
 
+$("домой").addEventListener("click",
+  безопасно("кнопка «все викторины»", () => открытьЭкран("menu")));
 $("новый-на-тех-же").addEventListener("click",
   безопасно("новый выпуск на тех же настройках", новыйНаТехЖе));
 $("черновики-в-файл").addEventListener("click",
