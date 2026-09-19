@@ -1,0 +1,9 @@
+{
+  "name": "proverki-stranicy",
+  "private": true,
+  "type": "module",
+  "description": "Прогоны страницы в jsdom: интерфейс, картинки, отправка",
+  "dependencies": {
+    "jsdom": "^26.0.0"
+  }
+}
