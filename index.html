@@ -70,6 +70,57 @@
      говорила, где ты, но вернуться назад было нечем — только кнопкой
      внизу экрана, и то не отовсюду. Теперь это дорожка: видно все шаги
      сразу, пройденные подсвечены, по ним можно ходить. */
+  /* ПРЕДПРОСМОТР КАДРА. Доли и цвета переписаны из самого ролика:
+     половина экрана на каждый выбор, полоса-таймер посередине, список
+     слева у викторины, карточка у пар. Кадр узнаваем — по нему видно
+     длинную подпись, чужой цвет и пустое место ДО сборки. */
+  .кадрбокс{display:flex;gap:14px;align-items:flex-start}
+  .кадрбокс .подсказка{flex:1;min-width:0;font-size:13px;color:#b9a08f;line-height:1.4}
+  .кадр{width:132px;flex:0 0 auto;aspect-ratio:9/16;border-radius:10px;
+       overflow:hidden;position:relative;background:#120d0a;
+       border:1px solid var(--line);font-size:7px;line-height:1.15}
+  .кадр .пол{position:absolute;left:0;right:0;height:50%;overflow:hidden;
+       display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .кадр .пол.верх{top:0;flex-direction:column}
+  .кадр .пол.низ{bottom:0;flex-direction:column-reverse}
+  .кадр .снимок{width:74%;aspect-ratio:16/9;background:#2c201a center/cover no-repeat;
+       margin:5px 0}
+  .кадр .подпись{color:#fff;font-weight:800;font-size:7.5px;text-align:center;
+       text-shadow:0 1px 2px rgba(0,0,0,.45);padding:0 4px;max-width:92%}
+  .кадр .полоса{position:absolute;left:0;right:0;top:calc(50% - 4px);height:8px;
+       background:#1B1310;border-top:1px solid #F7EFE4;border-bottom:1px solid #F7EFE4;
+       display:flex;align-items:center;gap:3px;padding:0 3px}
+  .кадр .полоса .счёт{color:#F7EFE4;font-size:5px;font-weight:700;flex:0 0 auto;
+       background:#2b2019;border-radius:4px;padding:0 3px;line-height:1.4}
+  .кадр .полоса i{flex:1;height:3px;background:#E8B65F;border-radius:2px}
+  .кадр .фонкадра{position:absolute;inset:0;
+       background:linear-gradient(160deg,#2b2320,#161110)}
+  .кадр .заголовок{position:absolute;left:6%;right:6%;top:20%;text-align:center;
+       font-weight:800;font-size:7px}
+  .кадр .список{position:absolute;left:7%;top:33%;right:42%}
+  .кадр .пункт{font-weight:700;font-size:6px;margin:1.5px 0;white-space:nowrap;
+       overflow:hidden;text-overflow:ellipsis}
+  .кадр .карточка{position:absolute;right:6%;top:38%;width:34%;aspect-ratio:4/3;
+       background:#F7EFE4 center/cover no-repeat;border:1px solid #E8B65F;
+       border-radius:3px}
+  .кадр .слово{position:absolute;left:0;right:0;bottom:16%;text-align:center;
+       color:#fff;font-weight:800;font-size:9px;letter-spacing:.04em}
+  .кадр .шкала{position:absolute;left:24%;right:24%;bottom:11%;height:4px;
+       border-radius:3px;overflow:hidden}
+  .кадр .шкала i{display:block;height:100%;width:55%}
+  .кадр .полепар{position:absolute;inset:0}
+  .кадр .сердца{position:absolute;inset:0;opacity:.5;font-size:9px;
+       text-align:center;padding-top:8%;letter-spacing:6px;line-height:2.6}
+  .кадр .карточкапар{position:absolute;left:9%;right:9%;top:16%;bottom:24%;
+       background:#FFFDF8;border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.25);
+       padding:6px;display:flex;flex-direction:column;gap:4px}
+  .кадр .текстпар{color:#3a2b22;font-size:6.5px;font-weight:600;line-height:1.3;
+       font-style:italic}
+  .кадр .снимокпар{flex:1;background:#e7ded2 center/cover no-repeat;border-radius:4px}
+  .кадр .кружок{position:absolute;left:50%;transform:translateX(-50%);bottom:7%;
+       width:20px;height:20px;border-radius:50%;border:2px solid #C1613C;
+       color:#3a2b22;display:flex;align-items:center;justify-content:center;
+       font-weight:800;font-size:8px;background:rgba(255,253,248,.9)}
   .шаги{display:flex;gap:6px;margin:10px 0 14px}
   .шаги .шаг{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);
        border-radius:11px;padding:8px 6px;text-align:center;font-size:12px;
@@ -258,6 +309,16 @@
       </select>
       <div class="muted" style="margin-top:8px">Пиши по-английски: по этим словам ещё и картинки ищутся.
       Фраза и тема нужны, даже если заставка выключена — по ним ищутся картинки и строится озвучка.</div>
+    </div>
+
+    <div class="card кадрбокс" id="кадр-editor">
+      <div class="кадр"></div>
+      <div class="подсказка">
+        <b style="color:var(--cream)">Как будет выглядеть</b><br>
+        Первый вопрос — так, как он встанет в ролик: цвета, край
+        картинки, длина подписей. Меняешь настройки — кадр меняется
+        сразу, собирать для этого ничего не надо.
+      </div>
     </div>
 
     <h2>Вопросы</h2>
@@ -535,6 +596,15 @@
     <h1>Сборка</h1>
     <div class="muted">голос, звук и цвета. Звук и голос
       можно послушать кнопкой «▶», не собирая ролик.</div>
+
+    <div class="card кадрбокс" id="кадр-q10build">
+      <div class="кадр"></div>
+      <div class="подсказка">
+        <b style="color:var(--cream)">Как будет выглядеть</b><br>
+        Кадр из середины ролика. Цвета, картинка и текст — те самые,
+        что уедут на сборку.
+      </div>
+    </div>
 
     <div class="card" id="q10-общие-настройки">
       <div class="поле">
@@ -875,6 +945,169 @@ const очиститьВести = () => {
 };
 
 // ——————————————————————————————————————————————————————————
+//  Предпросмотр кадра
+// ——————————————————————————————————————————————————————————
+// Главная дыра прежнего сайта: увидеть, что получится, можно было
+// единственным способом — собрать ролик и подождать пять-восемь минут.
+// Отсюда половина кругов «перезалей, пересобери»: цвет, край картинки,
+// длина подписи — всё это решается взглядом, а взгляда не было.
+//
+// Кадр здесь не рисуется «похоже»: цвета, доли экрана и порядок
+// элементов переписаны из того же кода, который собирает ролик
+// (thisorthat-data.ts, overlay.py, «фон пар.py»). Это вторая копия
+// чисел, и она может разъехаться — но разъедется ОНА, а не ролик, и
+// увидит это человек сразу, на своём же выпуске.
+
+const ГАММЫ_ПАР = [
+  { имя: "сирень", верх: "#e6d8f2", низ: "#d9c3ea", сердце: "#C1613C" },
+  { имя: "пудра", верх: "#f7e4e8", низ: "#efc9d4", сердце: "#C1613C" },
+  { имя: "кремовая", верх: "#F7EFE4", низ: "#f0d9c8", сердце: "#C1613C" },
+  { имя: "лаванда", верх: "#ece2f7", низ: "#cfc0e6", сердце: "#9a5bb8" },
+  { имя: "закат", верх: "#fbe0d2", низ: "#f3bfc6", сердце: "#C1613C" },
+  { имя: "мята", верх: "#F7EFE4", низ: "#cfe6e3", сердце: "#12888A" },
+];
+
+const ЦВЕТА_ВИКТОРИНЫ = {
+  "фирменный": { уровни: ["#1FB5AE", "#E8B65F", "#C1613C", "#7E3520"],
+                 заголовок: "#1FB5AE", полоса: "#F7EFE4" },
+  "светофор": { уровни: ["#2BE84F", "#FFD93B", "#FF4438", "#A01A2E"],
+                заголовок: "#2BE84F", полоса: "#FFFFFF" },
+};
+
+const уровеньЦвет = (стиль, номер) => {
+  const н = ЦВЕТА_ВИКТОРИНЫ[стиль] || ЦВЕТА_ВИКТОРИНЫ["фирменный"];
+  if (номер <= 3) return н.уровни[0];
+  if (номер <= 6) return н.уровни[1];
+  if (номер <= 9) return н.уровни[2];
+  return н.уровни[3];
+};
+
+const кусокТекста = (т, сколько) => {
+  const с = String(т || "").trim();
+  return с.length > сколько ? с.slice(0, сколько - 1) + "…" : с;
+};
+
+// Край картинки — ровно три вида, как в кнопке 16 и на сайте.
+const крайКартинки = (эл, край) => {
+  if (край === "рамка") {
+    эл.style.borderRadius = "7px";
+    эл.style.border = "2px solid #F7EFE4";
+    эл.style.maskImage = "";
+  } else if (край === "размытый") {
+    эл.style.borderRadius = "0";
+    эл.style.border = "0";
+    эл.style.maskImage =
+      "linear-gradient(to right,transparent,#000 18%,#000 82%,transparent),"
+      + "linear-gradient(to bottom,transparent,#000 12%,#000 88%,transparent)";
+    эл.style.maskComposite = "intersect";
+    эл.style.webkitMaskComposite = "source-in";
+  } else {
+    эл.style.borderRadius = "0";
+    эл.style.border = "0";
+    эл.style.maskImage = "";
+  }
+};
+
+// ——— «Это или то» ———
+const кадрЭтоИлиТо = (холст) => {
+  const [верх, низ] = ГАММЫ[state.theme] ?? ГАММЫ["терракота"];
+  const раунд = (state.rounds || [])[0] || { top: "", bottom: "", pct: 55 };
+  const край = state.edge || "рамка";
+  холст.innerHTML =
+    '<div class="пол верх"><div class="снимок"></div><div class="подпись"></div></div>'
+    + '<div class="полоса"><span class="счёт">1 / ' + (state.rounds || []).length
+    + '</span><i></i></div>'
+    + '<div class="пол низ"><div class="снимок"></div><div class="подпись"></div></div>';
+  const половины = холст.querySelectorAll(".пол");
+  половины[0].style.background = верх;
+  половины[1].style.background = низ;
+  const подписи = холст.querySelectorAll(".подпись");
+  подписи[0].textContent = кусокТекста(раунд.top, 18) || "сверху";
+  подписи[1].textContent = кусокТекста(раунд.bottom, 18) || "снизу";
+  холст.querySelectorAll(".снимок").forEach((с, i) => {
+    крайКартинки(с, край);
+    const выбор = раунд.picks && раунд.picks[i === 0 ? "top" : "bottom"];
+    const своё = раунд.photos && раунд.photos[i === 0 ? "top" : "bottom"];
+    const адрес = (выбор && (выбор.показ || выбор.ссылка)) || своё;
+    if (адрес) с.style.backgroundImage = вФон(адрес);
+  });
+};
+
+// ——— викторина на 10 пунктов ———
+const кадрВикторины = (холст) => {
+  const стиль = ($("q10-стиль") && $("q10-стиль").value) || "фирменный";
+  const набор = ЦВЕТА_ВИКТОРИНЫ[стиль] || ЦВЕТА_ВИКТОРИНЫ["фирменный"];
+  const ответы = (q10?.ответы ?? []).map((о) => о.ответ).filter(Boolean);
+  const тема = ($("q10-тема") && $("q10-тема").value) || q10?.тема
+    || "Guess the answer";
+  const карточки = !$("q10-карточки") || $("q10-карточки").value !== "нет";
+  let список = "";
+  const всего = Math.max(ответы.length, 10);
+  for (let i = 1; i <= Math.min(всего, 10); i += 1) {
+    const текст = ответы[i - 1];
+    список += '<div class="пункт" style="color:' + уровеньЦвет(стиль, i) + '">'
+      + i + ". " + (текст ? кусокТекста(текст, 14) : "") + "</div>";
+  }
+  холст.innerHTML =
+    '<div class="фонкадра"></div>'
+    + '<div class="заголовок" style="color:' + набор.заголовок + '">'
+    + кусокТекста(тема, 26) + "</div>"
+    + '<div class="список">' + список + "</div>"
+    + (карточки ? '<div class="карточка"></div>' : "")
+    + '<div class="слово">ANSWER</div>'
+    + '<div class="шкала" style="background:' + набор.полоса + '">'
+    + '<i style="background:' + уровеньЦвет(стиль, Math.min(ответы.length || 1, 10))
+    + '"></i></div>';
+  const карточка = холст.querySelector(".карточка");
+  const первая = (q10?.картинки ?? []).find((к) => к && (к.превью || к.ссылка));
+  if (карточка && первая) {
+    карточка.style.backgroundImage = вФон(первая.превью || первая.ссылка);
+  }
+};
+
+// ——— тест для пар ———
+const кадрПар = (холст) => {
+  const номер = Number(($("пары-гамма") && $("пары-гамма").value) || 0);
+  const гамма = ГАММЫ_ПАР[номер] || ГАММЫ_ПАР[0];
+  const отсчёт = ((q10?.настройки ?? {}).отсчёт || "да") !== "нет";
+  const вопрос = (q10?.вопросы ?? [])[0]
+    || (q10?.обложки ?? [])[0] || "Вопрос появится здесь";
+  холст.innerHTML =
+    '<div class="полепар"></div>'
+    + '<div class="сердца">♥ ♥ ♥<br>♥ ♥<br>♥ ♥ ♥</div>'
+    + '<div class="карточкапар"><div class="текстпар"></div>'
+    + '<div class="снимокпар"></div></div>'
+    + (отсчёт ? '<div class="кружок">3</div>' : "");
+  const поле = холст.querySelector(".полепар");
+  поле.style.background = "linear-gradient(" + гамма.верх + "," + гамма.низ + ")";
+  холст.querySelector(".сердца").style.color = гамма.сердце;
+  холст.querySelector(".текстпар").textContent = кусокТекста(вопрос, 46);
+  const снимок = холст.querySelector(".снимокпар");
+  const первая = (q10?.картинки ?? []).find((к) => к && (к.превью || к.ссылка));
+  if (первая) снимок.style.backgroundImage = вФон(первая.превью || первая.ссылка);
+  const кружок = холст.querySelector(".кружок");
+  if (кружок) кружок.style.borderColor = гамма.сердце;
+};
+
+// Один вход на все три формата: какой кадр рисовать, решает экран.
+const рисоватьКадр = (какой) => {
+  const где = document.getElementById("кадр-" + какой);
+  if (!где) return;
+  const холст = где.querySelector(".кадр");
+  if (!холст) return;
+  try {
+    if (какой === "editor") кадрЭтоИлиТо(холст);
+    else if (этоПары()) кадрПар(холст);
+    else кадрВикторины(холст);
+  } catch (e) {
+    // Предпросмотр — удобство, а не работа. Упасть он права не имеет:
+    // человеку важно собрать ролик, а не смотреть картинку.
+    холст.innerHTML = "";
+    try { console.error("предпросмотр", e); } catch {}
+  }
+};
+
+// ——————————————————————————————————————————————————————————
 //  Полоса шагов
 // ——————————————————————————————————————————————————————————
 // Шаг был надписью «Шаг 2 из 4»: она говорит, где ты, но вернуться ею
@@ -1131,6 +1364,7 @@ const вБазуФайл = (file) =>
   });
 
 const рисовать = () => {
+  рисоватьКадр("editor");
   const box = $("pairs");
   box.innerHTML = "";
   state.rounds.forEach((r, i) => {
@@ -1280,6 +1514,7 @@ for (const id of ["hook", "edition", "mode", "shot", "voice", "introOn", "theme"
   $(id).addEventListener("input", () => {
     state[id] = $(id).value;
     if (id === "theme") рисоватьГамму();
+    рисоватьКадр("editor");
     сохранить();
   });
 }
@@ -3990,6 +4225,7 @@ $("пары-отсчёт").addEventListener("click", безопасно("отс�
                                 { отсчёт: кнопка.dataset["отсчёт"] });
   q10Помнить();
   парыПоказатьНастройки();
+  рисоватьКадр("q10build");
 }));
 
 function парыПоказатьНастройки() {
@@ -4216,6 +4452,14 @@ $("voice-слушать").addEventListener("click", безопасно("посл
 
 // Поменяли выбор во время проигрывания — старое обрываем, иначе
 // в наушниках наложатся два.
+// Кадр отзывается на каждую настройку, которая его меняет: иначе
+// человек поменяет цвет и решит, что предпросмотр сломан.
+for (const поле of ["q10-стиль", "q10-карточки", "q10-тема", "пары-гамма",
+                    "пары-секунд"]) {
+  const эл = $(поле);
+  if (эл) эл.addEventListener("input", () => рисоватьКадр("q10build"));
+}
+
 for (const [список, весть] of [["q10-звук", "q10-звук-весть"],
                                ["q10-голос", "q10-голос-весть"],
                                ["пары-голос", "пары-голос-весть"],
@@ -5059,6 +5303,7 @@ const открытьЭкран = (что) => {
       $("пары-голос").value = q10.настройки.озвучка === "нет"
         ? "" : (q10.настройки.голос ?? "en-US-AriaNeural");
     }
+    рисоватьКадр("q10build");
     // У форматов разные настройки: у викторины голос и звук таймера,
     // у теста для пар — гамма и кружок отсчёта. Показываем те, что
     // относятся к делу, чтобы человек не выбирал ненужное.
