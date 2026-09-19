@@ -1,0 +1,319 @@
+// Интерфейс: полоса шагов, сообщения на экране, карточки, предпросмотр.
+import fs from "node:fs";
+import { JSDOM } from "jsdom";
+
+const ФАЙЛ = new URL("../index.html", import.meta.url);
+const ошибки = [];
+let сделано = 0;
+const так = (что, условие, чего) => {
+  сделано += 1;
+  if (условие) console.log("  ок   " + что);
+  else { ошибки.push(что + (чего ? " — " + чего : "")); console.log("  МИМО " + что); }
+};
+
+const html = fs.readFileSync(ФАЙЛ, "utf8");
+const хвост = `
+<script>
+window.__жалобы = [];
+window.addEventListener("error", (e) => window.__жалобы.push(String(e.message)));
+window.__дай = {
+  открытьЭкран: (что) => открытьЭкран(что),
+  выпуск: (в) => { q10 = в; q10Работы = [в]; },
+  выпускСейчас: () => q10,
+  сказать: (...а) => сказать(...а),
+  ошибка: (где, e) => сказатьОбОшибке(где, e),
+  состояние: () => state,
+  списки: () => рисоватьСпискиПар(),
+  рисоватьПары: () => рисовать(),
+};
+</script>`;
+
+const dom = new JSDOM(html.replace("</body>", хвост + "</body>"), {
+  runScripts: "dangerously",
+  url: "https://gallxxxx.github.io/quiz/",
+  pretendToBeVisual: true,
+  beforeParse(окно) {
+    окно.localStorage.setItem("викторина-доступ",
+      JSON.stringify({ pexels: "к", токен: "ghp_test1234567890" }));
+    окно.fetch = async () => ({ ok: false, status: 404, json: async () => ({}) });
+    окно.XMLHttpRequest = class {
+      constructor() { this.upload = {}; this.timeout = 0; }
+      open() {} setRequestHeader() {}
+      send() { setTimeout(() => { this.status = 404; this.responseText = "{}";
+        if (this.onload) this.onload({}); }, 5); }
+    };
+    // Всплывающих окон быть не должно вовсе — ловим, если кто-то остался.
+    окно.alert = (т) => окно.__жалобы.push("ВСПЛЫЛО ОКНО: " + String(т).slice(0, 60));
+    окно.confirm = () => false;
+  },
+});
+const окно = dom.window;
+const $ = (id) => окно.document.getElementById(id);
+const ждать = (мс) => new Promise((г) => setTimeout(г, мс));
+await ждать(300);
+
+console.log("\n0. Первый запуск");
+// Проверяем сразу, до переключений экранов: подсказка живёт на главной и
+// уходит, как только человек выбрал викторину.
+так("подсказка «с чего начать» показана новичку",
+    /С чего начать/.test($("вести").textContent),
+    $("вести").textContent.slice(0, 40));
+const кнопкаПонятно = Array.from($("вести").querySelectorAll("button"))
+  .find((к) => /Понятно/.test(к.textContent));
+так("у неё есть кнопка «понятно»", !!кнопкаПонятно);
+if (кнопкаПонятно) {
+  кнопкаПонятно.dispatchEvent(new окно.Event("click", { bubbles: true }));
+  await ждать(30);
+}
+так("нажатие запоминается",
+    окно.localStorage.getItem("викторина-знакомство") === "да",
+    String(окно.localStorage.getItem("викторина-знакомство")));
+
+console.log("\n1. Полоса шагов");
+окно.__дай.открытьЭкран("editor");
+await ждать(30);
+const полоса = $("полоса-шагов");
+так("полоса появилась на редакторе", !полоса.classList.contains("hide"));
+так("шагов три у «Это или то»",
+    полоса.querySelectorAll(".шаг").length === 3,
+    String(полоса.querySelectorAll(".шаг").length));
+так("текущий шаг подсвечен",
+    полоса.querySelectorAll(".шаг")[0].classList.contains("тут"));
+так("названия шагов видны",
+    /Вопросы/.test(полоса.textContent) && /Картинки/.test(полоса.textContent)
+    && /Сборка/.test(полоса.textContent), полоса.textContent);
+
+окно.__дай.выпуск({ ид: "т1", вид: "пары", имя: "п", этап: "перевод",
+                    есть: "перевод", вопросы: ["A?"], ответы: [], картинки: [] });
+окно.__дай.открытьЭкран("q10pics");
+await ждать(30);
+так("у пар шагов четыре",
+    полоса.querySelectorAll(".шаг").length === 4,
+    String(полоса.querySelectorAll(".шаг").length));
+так("на картинках подсвечен третий",
+    полоса.querySelectorAll(".шаг")[2].classList.contains("тут"));
+так("пройденные шаги отмечены",
+    полоса.querySelectorAll(".шаг")[1].classList.contains("пройден"));
+так("вперёд не пускаем: сборка ещё недоступна",
+    полоса.querySelectorAll(".шаг")[3].classList.contains("нельзя"));
+
+// Возврат по полосе — то, ради чего всё затевалось.
+полоса.querySelectorAll(".шаг")[1].dispatchEvent(
+  new окно.Event("click", { bubbles: true }));
+await ждать(40);
+так("нажатие на пройденный шаг возвращает назад",
+    !$("парытекст").classList.contains("hide"),
+    "открыт другой экран");
+так("а полоса переехала вместе с нами",
+    полоса.querySelectorAll(".шаг")[1].classList.contains("тут"));
+
+console.log("\n2. Сообщения на экране, а не окном");
+окно.__дай.открытьЭкран("q10build");
+окно.__дай.сказать("Проверочное сообщение", { вид: "готово" });
+await ждать(20);
+const плашки = () => $("вести").querySelectorAll(".весть");
+так("плашка появилась", плашки().length === 1);
+так("вид передан", плашки()[0].classList.contains("готово"));
+так("текст на месте", /Проверочное сообщение/.test(плашки()[0].textContent));
+так("всплывающих окон не было", окно.__жалобы.length === 0,
+    JSON.stringify(окно.__жалобы));
+
+// Второе такое же сообщение не размножается.
+окно.__дай.сказать("Проверочное сообщение", { вид: "готово" });
+await ждать(20);
+так("повтор не плодит плашки", плашки().length === 1,
+    String(плашки().length));
+
+плашки()[0].querySelector(".закрыть").dispatchEvent(
+  new окно.Event("click", { bubbles: true }));
+await ждать(20);
+так("закрывается крестиком", плашки().length === 0);
+
+окно.__дай.ошибка("проверка", new Error("что-то пошло не так"));
+await ждать(20);
+так("сбой тоже показан плашкой, а не окном",
+    плашки().length === 1 && плашки()[0].classList.contains("беда"));
+так("и по-прежнему без всплывающих окон", окно.__жалобы.length === 0,
+    JSON.stringify(окно.__жалобы));
+
+окно.__дай.открытьЭкран("menu");
+await ждать(20);
+так("на главной полоса шагов прячется",
+    $("полоса-шагов").classList.contains("hide"));
+так("и сообщения прошлого экрана уносятся", плашки().length === 0);
+
+console.log("\n3. Списки карточками");
+окно.__дай.выпуск({ ид: "т2", вид: "пары", имя: "п", этап: "расшифровка",
+                    есть: "расшифровка",
+                    обложки: ["Первая обложка", "Вторая обложка"],
+                    вопросы: ["Вопрос раз", "Вопрос два", "Вопрос три"],
+                    концовки: ["Концовка"] });
+окно.__дай.открытьЭкран("парытекст");
+await ждать(50);
+const карточки = (поле) => $("список-" + поле).querySelectorAll(".строка");
+так("вопросы стали карточками", карточки("пары-вопросы").length === 3,
+    String(карточки("пары-вопросы").length));
+так("обложки тоже", карточки("пары-обложки").length === 2);
+так("номера проставлены",
+    карточки("пары-вопросы")[1].querySelector(".номер").textContent === "2");
+так("поле с текстом спрятано", $("пары-вопросы").classList.contains("hide"));
+
+карточки("пары-вопросы")[0].querySelector(".ручки button:nth-child(2)")
+  .dispatchEvent(new окно.Event("click", { bubbles: true }));
+await ждать(40);
+так("вопрос уехал вниз",
+    карточки("пары-вопросы")[1].querySelector("textarea").value === "Вопрос раз",
+    карточки("пары-вопросы")[1].querySelector("textarea").value);
+так("и это доехало до выпуска",
+    (окно.__дай.выпускСейчас().вопросы || [])[1] === "Вопрос раз",
+    JSON.stringify(окно.__дай.выпускСейчас().вопросы));
+так("у первой карточки «вверх» серая",
+    карточки("пары-вопросы")[0].querySelector(".ручки button").disabled);
+
+карточки("пары-вопросы")[2].querySelector(".ручки button:nth-child(3)")
+  .dispatchEvent(new окно.Event("click", { bubbles: true }));
+await ждать(40);
+так("карточка убирается", карточки("пары-вопросы").length === 2,
+    String(карточки("пары-вопросы").length));
+
+$("список-пары-вопросы").querySelector(".добавить")
+  .dispatchEvent(new окно.Event("click", { bubbles: true }));
+await ждать(40);
+так("и добавляется пустая", карточки("пары-вопросы").length === 3,
+    String(карточки("пары-вопросы").length));
+так("пустая карточка не пропадает при перерисовке",
+    карточки("пары-вопросы")[2].querySelector("textarea").value === "");
+
+const поле = карточки("пары-вопросы")[0].querySelector("textarea");
+поле.value = "Совсем другой вопрос";
+поле.dispatchEvent(new окно.Event("input", { bubbles: true }));
+await ждать(30);
+так("правка попадает в выпуск",
+    (окно.__дай.выпускСейчас().вопросы || [])[0] === "Совсем другой вопрос",
+    JSON.stringify(окно.__дай.выпускСейчас().вопросы));
+так("ошибок нет", окно.__жалобы.length === 0, JSON.stringify(окно.__жалобы));
+
+console.log("\n4. Вопросы «Это или то» переставляются");
+окно.__дай.открытьЭкран("editor");
+await ждать(40);
+const пары_ = () => окно.document.querySelectorAll("#pairs .pair");
+так("вопросы нарисованы", пары_().length >= 2, String(пары_().length));
+const перваяПодпись = пары_()[0].querySelector('input[data-side="top"]').value;
+пары_()[0].querySelector(".вниз").dispatchEvent(
+  new окно.Event("click", { bubbles: true }));
+await ждать(40);
+так("вопрос поменялся местами со вторым",
+    пары_()[1].querySelector('input[data-side="top"]').value === перваяПодпись,
+    пары_()[1].querySelector('input[data-side="top"]').value);
+так("у первого «вверх» серая", пары_()[0].querySelector(".вверх").disabled);
+так("страница цела", окно.__жалобы.length === 0, JSON.stringify(окно.__жалобы));
+
+console.log("\n5. Предпросмотр кадра");
+окно.__дай.открытьЭкран("editor");
+await ждать(50);
+const кадрРед = $("кадр-editor").querySelector(".кадр");
+так("кадр нарисован в редакторе",
+    кадрРед.querySelectorAll(".пол").length === 2,
+    String(кадрРед.querySelectorAll(".пол").length));
+так("в нём есть полоса-таймер", !!кадрРед.querySelector(".полоса"));
+так("подписи взяты из первого вопроса",
+    кадрРед.querySelectorAll(".подпись")[0].textContent.length > 0,
+    кадрРед.querySelectorAll(".подпись")[0].textContent);
+
+// Цвет половины — тот же, что поедет в ролик.
+$("theme").value = "красный-синий";
+$("theme").dispatchEvent(new окно.Event("input", { bubbles: true }));
+await ждать(40);
+const верхЦвет = $("кадр-editor").querySelector(".пол.верх").style.background;
+так("смена оформления перекрашивает кадр",
+    /209, 46, 46|#D12E2E|rgb\(209/i.test(верхЦвет), верхЦвет);
+
+// Край картинки виден: рамка есть, у «острого» её нет.
+$("edge").value = "рамка";
+$("edge").dispatchEvent(new окно.Event("input", { bubbles: true }));
+await ждать(30);
+const сРамкой = $("кадр-editor").querySelector(".снимок").style.border;
+$("edge").value = "острый";
+$("edge").dispatchEvent(new окно.Event("input", { bubbles: true }));
+await ждать(30);
+const безРамки = $("кадр-editor").querySelector(".снимок").style.border;
+так("рамка картинки показана и убирается",
+    сРамкой.includes("2px") && !безРамки.includes("2px"),
+    сРамкой + " / " + безРамки);
+
+// Викторина: список ответов и цвета сложности.
+окно.__дай.выпуск({ ид: "т3", вид: "викторина", имя: "в", этап: "сборка",
+                    тема: "Guess the country",
+                    ответы: [{ ответ: "Japan" }, { ответ: "Brazil" },
+                             { ответ: "Ukraine" }, { ответ: "Italy" }],
+                    картинки: [], настройки: {} });
+окно.__дай.открытьЭкран("q10build");
+await ждать(50);
+const кадрСб = $("кадр-q10build").querySelector(".кадр");
+так("у викторины список из десяти пунктов",
+    кадрСб.querySelectorAll(".пункт").length === 10,
+    String(кадрСб.querySelectorAll(".пункт").length));
+так("ответы подставлены", /Japan/.test(кадрСб.textContent), кадрСб.textContent.slice(0, 60));
+так("заголовок из поля", /Guess the country/.test(кадрСб.textContent));
+const первыйПункт = кадрСб.querySelectorAll(".пункт")[0].style.color;
+так("первые пункты бирюзовые (фирменный набор)",
+    /31, 181, 174|#1FB5AE|rgb\(31/i.test(первыйПункт), первыйПункт);
+$("q10-стиль").value = "светофор";
+$("q10-стиль").dispatchEvent(new окно.Event("input", { bubbles: true }));
+await ждать(40);
+так("светофор перекрашивает пункты",
+    /43, 232, 79|#2BE84F|rgb\(43/i.test(
+      $("кадр-q10build").querySelector(".пункт").style.color),
+    $("кадр-q10build").querySelector(".пункт").style.color);
+
+// Пары: своя гамма и кружок отсчёта.
+окно.__дай.выпуск({ ид: "т4", вид: "пары", имя: "п", этап: "сборка",
+                    вопросы: ["How tall is she?"], картинки: [],
+                    настройки: { отсчёт: "да" } });
+окно.__дай.открытьЭкран("q10build");
+await ждать(50);
+const кадрПар_ = $("кадр-q10build").querySelector(".кадр");
+так("у пар своя карточка", !!кадрПар_.querySelector(".карточкапар"));
+так("вопрос виден", /How tall is she/.test(кадрПар_.textContent));
+так("кружок отсчёта на месте", !!кадрПар_.querySelector(".кружок"));
+так("страница не сломалась", окно.__жалобы.length === 0,
+    JSON.stringify(окно.__жалобы));
+
+console.log("\n6. Мелочи: первый запуск, копия черновиков, новый выпуск");
+// Новый выпуск на тех же настройках: подписи чистятся, настройки целы.
+окно.__дай.открытьЭкран("editor");
+await ждать(30);
+$("theme").value = "розовый-голубой";
+$("theme").dispatchEvent(new окно.Event("input", { bubbles: true }));
+const былоВопросов = окно.document.querySelectorAll("#pairs .pair").length;
+$("новый-на-тех-же").dispatchEvent(new окно.Event("click", { bubbles: true }));
+await ждать(40);
+так("вопросов столько же, сколько было",
+    окно.document.querySelectorAll("#pairs .pair").length === былоВопросов,
+    String(окно.document.querySelectorAll("#pairs .pair").length));
+так("подписи очищены",
+    окно.document.querySelector('#pairs input[data-side="top"]').value === "");
+так("а оформление осталось", $("theme").value === "розовый-голубой");
+так("и кадр перерисован под него",
+    /226, 58, 99|#E23A63|rgb\(226/i.test(
+      $("кадр-editor").querySelector(".пол.верх").style.background),
+    $("кадр-editor").querySelector(".пол.верх").style.background);
+
+// Клавиатура: поле в нижней половине экрана подкручивается к середине.
+let подкрутили = false;
+окно.HTMLElement.prototype.scrollIntoView = function () { подкрутили = true; };
+const какоеТо = окно.document.querySelector('#pairs input[data-side="top"]');
+какоеТо.getBoundingClientRect = () => ({ bottom: окно.innerHeight * 0.9 });
+какоеТо.dispatchEvent(new окно.FocusEvent("focusin", { bubbles: true }));
+await ждать(300);
+так("поле под клавиатурой подкручивается на видное место", подкрутили);
+
+так("ошибок нет и в конце", окно.__жалобы.length === 0,
+    JSON.stringify(окно.__жалобы));
+
+console.log("\n———");
+console.log(ошибки.length
+  ? "НЕ СОШЛОСЬ (" + ошибки.length + " из " + сделано + "):\n  " + ошибки.join("\n  ")
+  : "Сошлось всё: " + сделано + " проверок.");
+окно.close();
+process.exit(ошибки.length ? 1 : 0);
