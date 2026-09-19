@@ -35,6 +35,10 @@
   .pair .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
   .pair .num{font-weight:700;color:var(--gold);font-size:14px}
   .pair .kill{background:none;border:0;color:#b9a08f;font-size:20px;padding:0 6px}
+  .pair .ручки-пары{display:flex;gap:2px;align-items:center}
+  .pair .ручки-пары button{background:none;border:0;color:#b9a08f;font-size:16px;
+       padding:4px 7px;margin:0;width:auto}
+  .pair .ручки-пары button:disabled{opacity:.25}
   .side{display:flex;gap:10px;align-items:center;margin-top:8px}
   .side input{flex:1}
   .side .photo{width:54px;height:54px;border-radius:10px;border:1px dashed var(--line);
@@ -90,6 +94,29 @@
   .весть.готово{border-color:var(--gold);background:#2b2415}
   .весть.беда{border-color:var(--terra);background:#33190f}
   .весть button.big{margin-top:10px;padding:11px;font-size:15px}
+  /* СПИСОК КАРТОЧЕК. Раньше обложки, вопросы и концовки были одним
+     полем, где «каждая строка — отдельный кадр». Это правило надо
+     держать в голове, и оно ломается от одного лишнего Enter. Карточка
+     показывает ровно то, что станет кадром, и её видно целиком. */
+  .строки{margin-top:4px}
+  .строки .строка{display:flex;gap:8px;align-items:flex-start;
+       background:#1f1712;border:1px solid var(--line);border-radius:12px;
+       padding:9px 10px;margin:8px 0}
+  .строки .строка .номер{color:var(--gold);font-weight:700;font-size:13px;
+       min-width:18px;padding-top:10px;text-align:center}
+  .строки .строка textarea{flex:1;min-width:0;background:transparent;
+       border:0;color:var(--cream);font-size:15px;line-height:1.35;
+       padding:8px 0;resize:none;font-family:inherit}
+  .строки .строка textarea:focus{outline:none}
+  .строки .строка .ручки{display:flex;flex-direction:column;gap:2px}
+  .строки .строка .ручки button{width:30px;height:24px;padding:0;margin:0;
+       background:none;border:0;color:#b9a08f;font-size:14px;line-height:1}
+  .строки .строка .ручки button:disabled{opacity:.25}
+  .строки .строка.главная{border-color:var(--terra)}
+  .строки .пусто{color:#b9a08f;font-size:14px;padding:6px 2px}
+  .строки .добавить{width:auto;padding:9px 14px;font-size:14px;margin:6px 0 0;
+       background:var(--panel);color:var(--cream);border:1px solid var(--line);
+       border-radius:11px}
   .bar{position:fixed;left:0;right:0;bottom:0;background:var(--panel);
        border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
   .bar .inner{max-width:720px;margin:0 auto;display:flex;gap:10px}
@@ -409,8 +436,9 @@
     </div>
 
     <div class="card">
-      <label>Обложки — по одной на строку</label>
-      <textarea id="пары-обложки" rows="3" spellcheck="false"></textarea>
+      <label>Обложки — каждая своим кадром</label>
+      <div class="строки" id="список-пары-обложки" data-поле="пары-обложки" data-добавить="+ обложка"></div>
+      <textarea class="hide" id="пары-обложки" rows="3" spellcheck="false"></textarea>
       <!-- Сколько кадров вступления. Изначально столько же, сколько в
            исходном ролике, — так его разобрала нейросеть. Кнопки делят
            ТОТ ЖЕ текст на другое число кадров: слова не пропадают и не
@@ -430,13 +458,15 @@
       </div>
     </div>
     <div class="card">
-      <label>Вопросы — по одному на строку</label>
-      <textarea id="пары-вопросы" rows="9" spellcheck="false"></textarea>
+      <label>Вопросы — каждый своим кадром</label>
+      <div class="строки" id="список-пары-вопросы" data-поле="пары-вопросы" data-добавить="+ вопрос"></div>
+      <textarea class="hide" id="пары-вопросы" rows="9" spellcheck="false"></textarea>
       <div class="muted" id="пары-счёт" style="margin-top:6px"></div>
     </div>
     <div class="card">
-      <label>Концовки — по одной на строку</label>
-      <textarea id="пары-концовки" rows="3" spellcheck="false"></textarea>
+      <label>Концовки — каждая своим кадром</label>
+      <div class="строки" id="список-пары-концовки" data-поле="пары-концовки" data-добавить="+ концовка"></div>
+      <textarea class="hide" id="пары-концовки" rows="3" spellcheck="false"></textarea>
     </div>
 
     <button class="big ghost" id="пары-назад">← другой ролик</button>
@@ -1108,7 +1138,13 @@ const рисовать = () => {
     el.className = "pair";
     el.innerHTML =
       '<div class="head"><span class="num">Вопрос ' + (i + 1) + '</span>' +
-      '<button class="kill" title="убрать">✕</button></div>' +
+      // Порядок вопросов правится здесь же. Раньше поменять их местами
+      // было нельзя вовсе: только стереть оба и набрать заново.
+      '<span class="ручки-пары">' +
+      '<button class="вверх" title="Поднять выше" aria-label="Поднять выше">↑</button>' +
+      '<button class="вниз" title="Опустить ниже" aria-label="Опустить ниже">↓</button>' +
+      '<button class="kill" title="Убрать вопрос" aria-label="Убрать вопрос">✕</button>' +
+      '</span></div>' +
       '<div class="side"><div class="photo" data-side="top">+</div>' +
       '<input data-side="top" placeholder="сверху"></div>' +
       '<div class="side"><div class="photo" data-side="bottom">+</div>' +
@@ -1137,6 +1173,20 @@ const рисовать = () => {
       сохранить();
       рисовать();
     });
+
+    const переставить = (куда) => {
+      const j = i + куда;
+      if (j < 0 || j >= state.rounds.length) return;
+      [state.rounds[i], state.rounds[j]] = [state.rounds[j], state.rounds[i]];
+      сохранить();
+      рисовать();
+    };
+    const вверх = el.querySelector(".вверх");
+    const вниз = el.querySelector(".вниз");
+    вверх.disabled = i === 0;
+    вниз.disabled = i === state.rounds.length - 1;
+    вверх.addEventListener("click", () => переставить(-1));
+    вниз.addEventListener("click", () => переставить(1));
 
     el.querySelectorAll(".photo").forEach((slot) => {
       const side = slot.dataset.side;
@@ -3591,8 +3641,167 @@ const парыПоказатьТекст = (данные) => {
   $("пары-обложки").value = (q10.обложки || []).join("\n");
   $("пары-вопросы").value = (q10.вопросы || []).join("\n");
   $("пары-концовки").value = (q10.концовки || []).join("\n");
+  рисоватьСпискиПар();
   парыСчёт();
   панельQ10();
+};
+
+// ——————————————————————————————————————————————————————————
+//  Списки карточками
+// ——————————————————————————————————————————————————————————
+// Правило «каждая строка — отдельный кадр» приходилось держать в
+// голове, и ломалось оно от одного лишнего Enter. Теперь строка — это
+// карточка: видно, что именно станет кадром, рядом кнопки «вверх»,
+// «вниз» и «убрать», а Enter заводит следующую карточку, а не молча
+// разваливает текущую надвое.
+//
+// Само поле никуда не делось — оно спрятано и осталось источником
+// правды: из него читают счётчик, деление обложек и отправка. Карточки
+// пишут в него и подают событие «input», как будто печатал человек.
+// Так новый вид не потребовал переписывать ни одного прежнего места.
+
+const списокИз = (поле) => {
+  // Пустые строки НЕ выбрасываем: пустая карточка — это та, которую
+  // человек только что завёл и ещё не заполнил. Выброси её здесь — и
+  // номера поедут прямо под пальцами. Выбрасывают их те, кто готовит
+  // выпуск к отправке («строки»), и это правильное место.
+  // Хвостовую пустую не выбрасываем тоже: это карточка, которую человек
+  // только что завёл кнопкой «+», и выброшенная она выглядела бы как
+  // «кнопка не работает». Пустые убирают те, кто готовит выпуск к
+  // отправке («строки»), и это правильное место.
+  return document.getElementById(поле).value.split("\n");
+};
+
+const списокВ = (поле, строки) => {
+  const эл = document.getElementById(поле);
+  эл.value = строки.join("\n");
+  эл.dispatchEvent(new Event("input", { bubbles: true }));
+};
+
+// Какую карточку показать открытой после перерисовки: ту, в которой
+// стоял курсор. Без этого добавление строки уводило бы клавиатуру.
+let списокФокус = null;
+
+const рисоватьСписок = (поле) => {
+  const где = document.getElementById("список-" + поле);
+  if (!где) return;
+  const строки = списокИз(поле);
+  где.innerHTML = "";
+  if (!строки.length) {
+    const пусто = document.createElement("div");
+    пусто.className = "пусто";
+    пусто.textContent = "Пока пусто. Этой части в ролике не будет.";
+    где.appendChild(пусто);
+  }
+  строки.forEach((текст, i) => {
+    const строка = document.createElement("div");
+    строка.className = "строка" + (текст.startsWith("//") ? " главная" : "");
+
+    const номер = document.createElement("div");
+    номер.className = "номер";
+    номер.textContent = String(i + 1);
+    строка.appendChild(номер);
+
+    const поле_ввода = document.createElement("textarea");
+    поле_ввода.rows = 1;
+    поле_ввода.value = текст;
+    поле_ввода.spellcheck = false;
+    поле_ввода.dataset["номер"] = String(i);
+    const подогнать = () => {
+      поле_ввода.style.height = "auto";
+      поле_ввода.style.height = (поле_ввода.scrollHeight + 2) + "px";
+    };
+    поле_ввода.addEventListener("input", () => {
+      подогнать();
+      // Пишем прямо в спрятанное поле, не перерисовывая карточки: иначе
+      // на каждой букве терялся бы курсор.
+      const свежие = списокИз(поле);
+      while (свежие.length <= i) свежие.push("");
+      свежие[i] = поле_ввода.value.replace(/\n/g, " ");
+      списокВ(поле, свежие);
+    });
+    поле_ввода.addEventListener("focus", () => {
+      списокФокус = поле + ":" + i;
+    });
+    поле_ввода.addEventListener("keydown", (ev) => {
+      if (ev.key !== "Enter") return;
+      // Enter — это «следующая карточка», а не перенос внутри кадра:
+      // в кадре переносов не бывает, там одна фраза.
+      ev.preventDefault();
+      const свежие = списокИз(поле);
+      свежие.splice(i + 1, 0, "");
+      списокФокус = поле + ":" + (i + 1);
+      списокВ(поле, свежие);
+      рисоватьСписок(поле);
+    });
+    строка.appendChild(поле_ввода);
+
+    const ручки = document.createElement("div");
+    ручки.className = "ручки";
+    const кнопка = (знак, подсказка, можно, что) => {
+      const к = document.createElement("button");
+      к.type = "button";
+      к.textContent = знак;
+      к.title = подсказка;
+      к.setAttribute("aria-label", подсказка);
+      к.disabled = !можно;
+      if (можно) {
+        к.addEventListener("click", безопасно(подсказка, () => {
+          const свежие = списокИз(поле);
+          что(свежие);
+          списокВ(поле, свежие);
+          рисоватьСписок(поле);
+        }));
+      }
+      ручки.appendChild(к);
+    };
+    кнопка("↑", "Поднять выше", i > 0, (сп) => {
+      [сп[i - 1], сп[i]] = [сп[i], сп[i - 1]];
+      списокФокус = поле + ":" + (i - 1);
+    });
+    кнопка("↓", "Опустить ниже", i < строки.length - 1, (сп) => {
+      [сп[i + 1], сп[i]] = [сп[i], сп[i + 1]];
+      списокФокус = поле + ":" + (i + 1);
+    });
+    кнопка("✕", "Убрать", true, (сп) => {
+      сп.splice(i, 1);
+      списокФокус = null;
+    });
+    строка.appendChild(ручки);
+    где.appendChild(строка);
+    подогнать();
+  });
+
+  const добавить = document.createElement("button");
+  добавить.type = "button";
+  добавить.className = "добавить";
+  добавить.textContent = где.dataset["добавить"] || "+ строка";
+  добавить.addEventListener("click", безопасно("добавить строку", () => {
+    const свежие = списокИз(поле);
+    свежие.push("");
+    списокФокус = поле + ":" + (свежие.length - 1);
+    списокВ(поле, свежие);
+    рисоватьСписок(поле);
+  }));
+  где.appendChild(добавить);
+
+  // Возвращаем курсор туда, где он был: иначе после каждой кнопки
+  // клавиатура на телефоне закрывается и приходится тыкать заново.
+  if (списокФокус && списокФокус.startsWith(поле + ":")) {
+    const номер_поля = Number(списокФокус.split(":")[1]);
+    const поля = где.querySelectorAll("textarea");
+    if (поля[номер_поля]) {
+      поля[номер_поля].focus();
+      const конец = поля[номер_поля].value.length;
+      try { поля[номер_поля].setSelectionRange(конец, конец); } catch {}
+    }
+  }
+};
+
+const рисоватьСпискиПар = () => {
+  for (const поле of ["пары-обложки", "пары-вопросы", "пары-концовки"]) {
+    рисоватьСписок(поле);
+  }
 };
 
 const парыСчёт = () => {
@@ -3678,6 +3887,7 @@ const парыОбложекСколько = (сколько) => {
       : "Вступление разделено на " + надо + " кадра(ов) — примерно поровну.";
   }
   $("пары-обложки").value = разложить(куски, надо).join("\n");
+  рисоватьСписок("пары-обложки");
   парыСчёт();
   if (q10) {
     q10.обложки = строки("пары-обложки");
@@ -4770,12 +4980,14 @@ const открытьЭкран = (что) => {
       $("пары-обложки").value = (q10.обложки || []).join("\n");
       $("пары-вопросы").value = (q10.вопросы || []).join("\n");
       $("пары-концовки").value = (q10.концовки || []).join("\n");
+      рисоватьСпискиПар();
       парыСчёт();
       панельQ10();
     } else if (q10 && q10.сбой && q10.сбой === q10.этап) {
       for (const п of ["пары-обложки", "пары-вопросы", "пары-концовки"]) {
         $(п).value = "";
       }
+      рисоватьСпискиПар();
       q10Стоп($("пары-счёт"));
       $("пары-счёт").textContent = "Машина не справилась с разбором ролика."
         + " Он на месте — можно отправить его ещё раз.";
@@ -4784,6 +4996,7 @@ const открытьЭкран = (что) => {
       for (const п of ["пары-обложки", "пары-вопросы", "пары-концовки"]) {
         $(п).value = "";
       }
+      рисоватьСпискиПар();
       // Счётчик обложек пересчитываем и здесь, до текста: иначе он
       // показывает единицу из разметки, хотя обложек пока ноль, а кнопки
       // «−» и «+» выглядят живыми, но делить им нечего.
