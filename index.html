@@ -234,6 +234,10 @@
   .slot .now .kind{position:absolute;right:3px;bottom:3px;background:rgba(0,0,0,.65);
         color:var(--cream);font-size:10px;padding:1px 5px;border-radius:6px}
   .slot .who{flex:1;min-width:0}
+  /* Две кнопки столбиком: на телефоне в строку они не влезают и
+     наезжают на подпись. */
+  .slot .ручки{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
+  .slot .ручки button{white-space:nowrap}
   .slot .who b{font-size:16px}
   .slot .state{font-size:13px;margin-top:2px}
   .ok{color:#6fc08a}
@@ -2383,7 +2387,14 @@ const рисоватьСлоты = () => {
       '<div class="top">' +
         '<div class="now">' + (превью ? "" : "нет") + "</div>" +
         '<div class="who"><b></b><div class="state">' + состояние + "</div></div>" +
-        '<button class="big small ghost открыть">Выбрать</button>' +
+        // «Своё фото» теперь стоит на виду, рядом с «Выбрать». Раньше эта
+        // кнопка пряталась внутри «Выбрать», и до галереи выходило три
+        // нажатия вместо одного. Само окно выбора — айфоново, его с
+        // веб-страницы не пропустить, но дорогу до него укоротить можно.
+        '<div class="ручки">' +
+          '<button class="big small ghost открыть">Выбрать</button>' +
+          '<button class="big small ghost моё-сразу">Своё фото</button>' +
+        "</div>" +
       "</div>" +
       '<div class="vars hide"></div>' +
       (лист
@@ -2400,7 +2411,7 @@ const рисоватьСлоты = () => {
         : "") +
       '<div class="tools hide">' +
         '<button class="big small ghost ещё">Ещё варианты</button>' +
-        '<button class="big small ghost моё">Своё фото или видео</button>' +
+        '<button class="big small ghost моё">Своё видео</button>' +
         '<button class="big small ghost сброс">Пусть подберётся само</button>' +
       "</div>";
 
@@ -2518,10 +2529,15 @@ const рисоватьСлоты = () => {
 
     открыть.addEventListener("click", () => показать(false));
     el.querySelector(".ещё").addEventListener("click", () => показать(true));
-    el.querySelector(".моё").addEventListener("click", () => {
-      ждёт = { round: м.round, side: м.side, откуда: "картинки" };
-      $("file").click();
-    });
+    // Обе кнопки ведут в одно место. Разница только в том, что «Своё
+    // фото» стоит на виду, а «Своё видео» — внутри, вместе с остальным
+    // редким: видео со своего телефона берут заметно реже фотографии.
+    for (const кн of [el.querySelector(".моё"), el.querySelector(".моё-сразу")]) {
+      кн.addEventListener("click", () => {
+        ждёт = { round: м.round, side: м.side, откуда: "картинки" };
+        $("file").click();
+      });
+    }
     el.querySelector(".сброс").addEventListener("click", () => {
       r.picks[м.side] = null;
       delete r.photos[м.side];
