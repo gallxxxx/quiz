@@ -227,6 +227,38 @@ const снимокВерх = $("кадр-editor").querySelectorAll(".снимо�
     /data:image\/jpeg;base64,БАЗА64/.test(снимокВерх.style.backgroundImage),
     снимокВерх.style.backgroundImage);
 
+console.log("\n8. Белый лист в предпросмотре — лист, а не две половины");
+// Александр: «почему показывается что это выглядит так, если должно быть
+// по другому». Предпросмотр рисовал белому листу те же две половины и
+// красил верхнюю белым, нижнюю чёрным — кадра, которого в ролике нет.
+const холст = $("кадр-editor").querySelector(".кадр");
+так("при цветном оформлении половины крашеные",
+    холст.querySelectorAll(".пол")[1].style.background !== "transparent",
+    холст.querySelectorAll(".пол")[1].style.background);
+так("и полоса-таймер посередине есть", !!холст.querySelector(".полоса"));
+
+state.theme = "белое";
+окно.__дай.кадр("editor");
+так("кадр помечен листом", холст.classList.contains("лист"));
+так("половины не крашены вовсе",
+    Array.from(холст.querySelectorAll(".пол"))
+      .every((п) => п.style.background === "transparent"),
+    Array.from(холст.querySelectorAll(".пол")).map((п) => п.style.background).join("|"));
+так("полосы-таймера нет — время идёт кольцом вокруг кружка",
+    !холст.querySelector(".полоса"));
+так("посередине кружок «OR»",
+    холст.querySelector(".кружок")
+    && /OR/.test(холст.querySelector(".кружок").textContent));
+так("номер раунда остался", !!холст.querySelector(".номер"));
+так("сказано, что фон сотрётся на сборке",
+    !$("кадр-про-лист").classList.contains("hide"));
+
+state.theme = "терракота";
+окно.__дай.кадр("editor");
+так("вернулись к цветному — лист снят", !холст.classList.contains("лист"));
+так("и строчка про лист спрятана",
+    $("кадр-про-лист").classList.contains("hide"));
+
 так("ошибок по дороге нет", окно.__жалобы.length === 0,
     JSON.stringify(окно.__жалобы));
 

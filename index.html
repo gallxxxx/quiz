@@ -93,6 +93,31 @@
   .кадр .полоса .счёт{color:#F7EFE4;font-size:5px;font-weight:700;flex:0 0 auto;
        background:#2b2019;border-radius:4px;padding:0 3px;line-height:1.4}
   .кадр .полоса i{flex:1;height:3px;background:#E8B65F;border-radius:2px}
+  /* ——— белый лист ———
+     У этого оформления половин нет вовсе: весь кадр — один светлый лист,
+     картинки лежат на нём вырезанными, подписи чёрные, посередине чёрный
+     кружок «OR». Раньше предпросмотр рисовал ему те же две половины и
+     красил их белым и чёрным — то есть показывал то, чего в ролике нет.
+     Лист не чисто белый: #FFFFFF выглядит экраном, а не бумагой. */
+  .кадр.лист{background:#FAF8F5}
+  .кадр.лист .пол{justify-content:center}
+  /* Вырезанная картинка вписывается целиком: у неё нет прямоугольника,
+     обрезать по краям нечего. */
+  .кадр.лист .снимок{width:64%;aspect-ratio:4/3;background-color:transparent;
+       background-size:contain;background-position:center;margin:3px 0}
+  .кадр.лист .подпись{color:#141414;text-shadow:none;font-size:8px;
+       letter-spacing:.2px;text-transform:uppercase}
+  /* border и transform гасим нарочно: кружок «OR» делит имя с кружком
+     отсчёта у теста для пар, а тот нарисован с терракотовой обводкой и
+     сдвинут трансформом. Не погасишь — здесь получится обведённый и
+     уехавший влево. */
+  .кадр.лист .кружок{position:absolute;left:50%;top:50%;width:17px;height:17px;
+       margin:-8.5px 0 0 -8.5px;border:0;transform:none;bottom:auto;
+       border-radius:50%;background:#141414;color:#FAF8F5;
+       font-size:5px;font-weight:800;display:flex;align-items:center;
+       justify-content:center;letter-spacing:.3px}
+  .кадр.лист .номер{position:absolute;left:5px;top:50%;margin-top:-4px;
+       color:#9b948c;font-size:5px;font-weight:700}
   .кадр .фонкадра{position:absolute;inset:0;
        background:linear-gradient(160deg,#2b2320,#161110)}
   .кадр .заголовок{position:absolute;left:6%;right:6%;top:20%;text-align:center;
@@ -331,6 +356,14 @@
         Первый вопрос — так, как он встанет в ролик: цвета, край
         картинки, длина подписей. Меняешь настройки — кадр меняется
         сразу, собирать для этого ничего не надо.
+        <!-- У белого листа фон с картинок стирается на сборке, а не
+             здесь: браузеру такое не по силам. Значит в кадре картинка
+             пока со своим фоном — и лучше сказать об этом прямо, чем
+             дать человеку удивиться готовому ролику. -->
+        <div id="кадр-про-лист" class="hide" style="margin-top:8px">
+          Белый лист: фон с картинок сотрётся на сборке, здесь они пока
+          со своим. Всё остальное — как в ролике.
+        </div>
       </div>
     </div>
 
@@ -1290,19 +1323,42 @@ const кадрЭтоИлиТо = (холст) => {
   const [верх, низ] = ГАММЫ[state.theme] ?? ГАММЫ["терракота"];
   const раунд = (state.rounds || [])[0] || { top: "", bottom: "", pct: 55 };
   const край = state.edge || "рамка";
+
+  // БЕЛЫЙ ЛИСТ — ЭТО ДРУГОЙ КАДР, А НЕ ДРУГИЕ ЦВЕТА.
+  //
+  // Александр: «почему показывается что это выглядит так, если должно
+  // быть по другому». И правда: половин в этом оформлении нет вовсе, а
+  // предпросмотр рисовал те же две половины и красил верхнюю белым,
+  // нижнюю чёрным. Получалась картинка, которой в ролике не бывает.
+  //
+  // На деле весь кадр — один светлый лист, картинки лежат на нём
+  // вырезанными, подписи чёрные, посередине чёрный кружок «OR», номер
+  // раунда сбоку. Полосы-таймера тут тоже нет: время идёт кольцом
+  // вокруг кружка.
+  const лист = state.theme === "белое";
+  холст.classList.toggle("лист", лист);
+  const проЛист = document.getElementById("кадр-про-лист");
+  if (проЛист) проЛист.classList.toggle("hide", !лист);
+
   холст.innerHTML =
     '<div class="пол верх"><div class="снимок"></div><div class="подпись"></div></div>'
-    + '<div class="полоса"><span class="счёт">1 / ' + (state.rounds || []).length
-    + '</span><i></i></div>'
+    + (лист
+        ? '<span class="номер">1 / ' + (state.rounds || []).length + "</span>"
+          + '<div class="кружок">OR</div>'
+        : '<div class="полоса"><span class="счёт">1 / ' + (state.rounds || []).length
+          + '</span><i></i></div>')
     + '<div class="пол низ"><div class="снимок"></div><div class="подпись"></div></div>';
   const половины = холст.querySelectorAll(".пол");
-  половины[0].style.background = верх;
-  половины[1].style.background = низ;
+  // На листе половины не красятся: он один на весь кадр и задан в CSS.
+  половины[0].style.background = лист ? "transparent" : верх;
+  половины[1].style.background = лист ? "transparent" : низ;
   const подписи = холст.querySelectorAll(".подпись");
   подписи[0].textContent = кусокТекста(раунд.top, 18) || "сверху";
   подписи[1].textContent = кусокТекста(раунд.bottom, 18) || "снизу";
   холст.querySelectorAll(".снимок").forEach((с, i) => {
-    крайКартинки(с, край);
+    // У белого листа края не бывает: картинка и так лежит без рамки,
+    // вырезанная. Рамка или растворяющийся край тут были бы враньём.
+    крайКартинки(с, лист ? "острый" : край);
     const выбор = раунд.picks && раунд.picks[i === 0 ? "top" : "bottom"];
     const своё = раунд.photos && раунд.photos[i === 0 ? "top" : "bottom"];
     // Своё фото хранится голым base64, без «data:image/jpeg;base64,»
