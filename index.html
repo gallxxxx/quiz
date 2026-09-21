@@ -99,7 +99,7 @@
      кружок «OR». Раньше предпросмотр рисовал ему те же две половины и
      красил их белым и чёрным — то есть показывал то, чего в ролике нет.
      Лист не чисто белый: #FFFFFF выглядит экраном, а не бумагой. */
-  .кадр.лист{background:#FAF8F5}
+  .кадр.лист{background:#FFFFFF}
   .кадр.лист .пол{justify-content:center}
   /* Вырезанная картинка вписывается целиком: у неё нет прямоугольника,
      обрезать по краям нечего. */
@@ -113,7 +113,7 @@
      уехавший влево. */
   .кадр.лист .кружок{position:absolute;left:50%;top:50%;width:17px;height:17px;
        margin:-8.5px 0 0 -8.5px;border:0;transform:none;bottom:auto;
-       border-radius:50%;background:#141414;color:#FAF8F5;
+       border-radius:50%;background:#141414;color:#FFFFFF;
        font-size:5px;font-weight:800;display:flex;align-items:center;
        justify-content:center;letter-spacing:.3px}
   .кадр.лист .номер{position:absolute;left:5px;top:50%;margin-top:-4px;
@@ -268,7 +268,7 @@
   /* Вырезанное показываем на светлом: на тёмной карточке чёрный предмет
      сливается с фоном, и кажется, что вырезалось плохо. Заодно это тот
      самый лист, на котором он и будет лежать в ролике. */
-  .slot .now.на-листе{background-color:#FAF8F5;background-size:contain}
+  .slot .now.на-листе{background-color:#FFFFFF;background-size:contain}
   .tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 
   /* ——— список сборок ——— */
@@ -367,8 +367,16 @@
         <option value="да">да — сначала заставка, потом вопросы</option>
         <option value="нет">нет — сразу первый выбор</option>
       </select>
+      <label>Показывать концовку</label>
+      <select id="outroOn">
+        <option value="нет">нет — ролик кончается сразу после вопроса</option>
+        <option value="да">да — «HOW MANY MATCHED?» и призыв</option>
+      </select>
       <div class="muted" style="margin-top:8px">Пиши по-английски: по этим словам ещё и картинки ищутся.
-      Фраза и тема нужны, даже если заставка выключена — по ним ищутся картинки и строится озвучка.</div>
+      Фраза и тема нужны, даже если заставка выключена — по ним ищутся картинки и строится озвучка.
+      <br><br>Концовка по умолчанию выключена: это пять секунд в конце, на
+      которых зритель уходит, а от процента досмотра зависит, покажут ли
+      ролик дальше.</div>
     </div>
 
     <div class="card кадрбокс" id="кадр-editor">
@@ -1674,6 +1682,8 @@ const ПУСТО = () => ({
   shot: "крупный",
   voice: "en-US-GuyNeural",
   introOn: "да",
+  // Концовку по умолчанию не показываем: она режет досмотр.
+  outroOn: "нет",
   rounds: [
     { top: "Pizza", bottom: "Burger", pct: 47, photos: {}, picks: {} },
     { top: "Sushi", bottom: "Tacos", pct: 56, photos: {}, picks: {} },
@@ -1973,7 +1983,7 @@ const ГАММЫ = {
   "розовый-голубой": ["#E23A63", "#2B7FD4"],
   // Белый лист половин не красит вовсе: в полоске показываем сам лист
   // и чёрный текст, который на нём лежит.
-  "белое": ["#FAF8F5", "#141414"],
+  "белое": ["#FFFFFF", "#141414"],
 };
 
 const рисоватьГамму = () => {
@@ -1983,7 +1993,7 @@ const рисоватьГамму = () => {
   полосы[1].style.background = низ;
 };
 
-for (const id of ["hook", "edition", "mode", "shot", "voice", "introOn", "theme", "edge"]) {
+for (const id of ["hook", "edition", "mode", "shot", "voice", "introOn", "outroOn", "theme", "edge"]) {
   $(id).addEventListener("input", () => {
     state[id] = $(id).value;
     if (id === "theme") рисоватьГамму();
@@ -2798,6 +2808,9 @@ const собратьФайл = async () => {
       заголовок: "HOW MANY MATCHED?",
       подпись: "tell me in the comments",
       призыв: "all my best quizzes are on my profile",
+      // Выключена — последнего слайда в ролике не будет вовсе, и
+      // озвучивать его тоже никто не станет.
+      выключена: (state.outroOn || "нет") === "нет",
     },
     вопросы,
     настройки: {
@@ -6423,6 +6436,7 @@ $("theme").value = state.theme || "терракота";
 $("edge").value = state.edge || "острый";
 рисоватьГамму();
 $("introOn").value = state.introOn || "да";
+$("outroOn").value = state.outroOn || "нет";
 $("ключ-pexels").value = доступ.pexels || "";
 $("токен").value = доступ.токен || "";
 рисовать();
