@@ -398,6 +398,14 @@
     </div>
 
     <h2>Вопросы</h2>
+    <div class="card">
+      <button class="big turq" id="кнопка-ролик">🎬 Разобрать ролик из TikTok</button>
+      <input type="file" id="файл-ролик" accept="video/*" class="hide">
+      <div class="muted" id="ролик-статус" style="margin-top:6px">
+        Есть готовый ролик-викторина? Загрузи — сам вытащу пары (русские
+        переведу на английский). Нужен ключ OpenRouter в «Настройках доступа».
+      </div>
+    </div>
     <div id="pairs"></div>
     <button class="big ghost" id="add">+ ещё вопрос</button>
 
@@ -902,6 +910,14 @@
       <div class="muted" style="margin-top:6px">
         Без него ролик на сайте не соберётся: выпуск можно будет только скачать
         файлом и отнести на компьютер.
+      </div>
+
+      <label>Ключ OpenRouter — чтобы разбирать чужие ролики</label>
+      <input id="ключ-нейро" placeholder="sk-or-… " autocomplete="off">
+      <div class="muted" style="margin-top:6px">
+        Нужен только для кнопки «Разобрать ролик из TikTok»: нейросеть читает
+        пары прямо с кадров. Без него разбор не работает, всё остальное — да.
+        Взять свой: openrouter.ai/keys — бесплатно.
       </div>
 
       <div class="tools">
@@ -1702,7 +1718,7 @@ try {
 // У выпусков, собранных до появления проверки картинок, поля picks нет.
 for (const r of state.rounds) if (!r.picks) r.picks = {};
 
-let доступ = { pexels: "", токен: "" };
+let доступ = { pexels: "", токен: "", нейро: "" };
 try {
   const was = localStorage.getItem(KEY_НАСТРОЙКИ);
   if (was) доступ = { ...доступ, ...JSON.parse(was) };
@@ -2084,6 +2100,178 @@ $("кнопка-промпты").addEventListener("click", безопасно("�
 
     выход.appendChild(card);
   });
+}));
+
+// ——————————————————————————————————————————————————————————
+//  Разобрать ролик из TikTok
+// ——————————————————————————————————————————————————————————
+// Чужая викторина «This or That» → пары прямо в «Вопросы». Текст в этих
+// роликах НАПИСАН на кадрах, поэтому читаем кадры нейросетью (она же
+// переводит с русского и видит проценты), а не звук. Всё в браузере:
+// режем кадры, складываем в один лист, шлём в OpenRouter (у него CORS
+// для браузера открыт — проверено), получаем JSON.
+const РАЗБОР_КАДРОВ = 20;
+
+const ПРОМПТ_РАЗБОР =
+  "Перед тобой один лист с кадрами из видео-викторины «This or That» " +
+  "(«это или то»). Кадры идут по порядку: слева направо, затем сверху вниз. " +
+  "В каждом раунде зрителю показывают ДВА варианта: один в ВЕРХНЕЙ половине " +
+  "кадра, другой в НИЖНЕЙ, между ними кружок «OR». Собери список раундов.\n\n" +
+  "Верни ТОЛЬКО JSON:\n" +
+  '{"язык":"ru или en","тема":"НАЗВАНИЕ ТЕМЫ по-английски или пусто",' +
+  '"крючок":"фраза-крючок по-английски или пусто",' +
+  '"раунды":[{"верх":"верхний вариант","низ":"нижний вариант","процент_верх":число 0-100 или null}]}\n\n' +
+  "Правила: подписи ВСЕГДА по-английски (русские переведи; марки и названия — " +
+  "общепринятым английским написанием). Один раунд — одна пара, не повторяй. " +
+  "Пропусти заставку и концовку. «процент_верх» заполняй ТОЛЬКО если число видно " +
+  "на кадре, иначе null. Порядок раундов — как в ролике.";
+
+const вытащитьJSONброузер = (текст) => {
+  let s = String(текст || "").trim();
+  s = s.replace(/```json/gi, "").replace(/```/g, "").trim();
+  const a = s.indexOf("{"), b = s.lastIndexOf("}");
+  if (a >= 0 && b > a) s = s.slice(a, b + 1);
+  return JSON.parse(s);
+};
+
+// Кадры из ролика: перематываем видео по точкам и рисуем на холст.
+const кадрыИзРолика = (file, N) => new Promise((resolve, reject) => {
+  const v = document.createElement("video");
+  v.preload = "auto"; v.muted = true; v.playsInline = true;
+  const url = URL.createObjectURL(file);
+  const убрать = () => { try { URL.revokeObjectURL(url); } catch (e) {} };
+  const c = document.createElement("canvas");
+  const кадры = [];
+  let dur = 0, i = 0;
+  v.onerror = () => { убрать(); reject(new Error("это не видео или формат не читается")); };
+  v.onloadedmetadata = () => {
+    dur = v.duration || 0;
+    if (!isFinite(dur) || dur <= 0) { убрать(); reject(new Error("не понял длину ролика")); return; }
+    const k = Math.min(1, 300 / (v.videoWidth || 300));
+    c.width = Math.max(1, Math.round((v.videoWidth || 300) * k));
+    c.height = Math.max(1, Math.round((v.videoHeight || 533) * k));
+    дальше();
+  };
+  const дальше = () => {
+    if (i >= N) { убрать(); resolve({ кадры, cw: c.width, ch: c.height }); return; }
+    try { v.currentTime = Math.min(Math.max(0, dur - 0.05), (dur * (i + 0.5)) / N); }
+    catch (e) { убрать(); reject(new Error("не смог перемотать ролик")); }
+  };
+  v.onseeked = () => {
+    try {
+      c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+      кадры.push(c.toDataURL("image/jpeg", 0.7));
+    } catch (e) { /* один кадр не вышел — не беда */ }
+    i += 1;
+    дальше();
+  };
+  v.src = url;
+  // Страховка: если видео вообще не раскодировалось за 40 секунд.
+  setTimeout(() => { if (i === 0) { убрать(); reject(new Error("ролик не раскодировался")); } }, 40000);
+});
+
+// Складываем кадры в один лист 4-в-ряд.
+const листИзКадров = async (кадры, cw, ch) => {
+  const cols = 4, rows = Math.ceil(кадры.length / cols);
+  const c = document.createElement("canvas");
+  c.width = cols * cw; c.height = rows * ch;
+  const g = c.getContext("2d");
+  g.fillStyle = "#222"; g.fillRect(0, 0, c.width, c.height);
+  for (let i = 0; i < кадры.length; i++) {
+    const img = new Image();
+    await new Promise((res) => { img.onload = res; img.onerror = res; img.src = кадры[i]; });
+    g.drawImage(img, (i % cols) * cw, Math.floor(i / cols) * ch, cw, ch);
+  }
+  return c.toDataURL("image/jpeg", 0.85);
+};
+
+// Спрашиваем нейросеть (OpenRouter). Модель берём живую из списка.
+const разборНейросетью = async (листDataUrl) => {
+  const ключ = (доступ.нейро || "").trim();
+  if (!ключ) throw new Error("нет ключа OpenRouter — впиши его в «Настройках доступа»");
+
+  // Модель должна УМЕТЬ КАРТИНКИ (vision) — многие «:free» их не берут и
+  // отвечают 404 «No endpoints support image input». Поэтому берём живую
+  // gemini-flash (она видит картинки и проходит с ключом человека),
+  // «image/thinking/audio» из имени исключаем (это генераторы, не зрение).
+  let model = "google/gemini-flash-1.5";
+  try {
+    const rm = await fetch("https://openrouter.ai/api/v1/models");
+    const jm = await rm.json();
+    const ids = (jm.data || []).map((m) => String(m.id || ""));
+    const без = (x) => !/image|thinking|audio|tts/i.test(x);
+    model = ids.find((x) => /gemini[\-.]?[0-9].*flash/i.test(x) && без(x))
+         || ids.find((x) => /gemini.*flash/i.test(x) && без(x))
+         || model;
+  } catch (e) { /* не вышло — идём с запасной моделью */ }
+
+  const body = {
+    model,
+    messages: [{ role: "user", content: [
+      { type: "text", text: ПРОМПТ_РАЗБОР },
+      { type: "image_url", image_url: { url: листDataUrl } },
+    ] }],
+    temperature: 0,
+    max_tokens: 2048,
+    response_format: { type: "json_object" },
+  };
+  const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + ключ },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) {
+    const t = await r.text().catch(() => "");
+    throw new Error("нейросеть ответила " + r.status + " " + t.slice(0, 100));
+  }
+  const j = await r.json();
+  const txt = j.choices?.[0]?.message?.content;
+  if (!txt) throw new Error("пустой ответ нейросети");
+  return вытащитьJSONброузер(txt);
+};
+
+const заполнитьИзРазбора = (data) => {
+  const сырые = Array.isArray(data.раунды) ? data.раунды : [];
+  const раунды = сырые
+    .map((r) => ({ верх: String(r.верх || "").trim(), низ: String(r.низ || "").trim(), пв: r.процент_верх }))
+    .filter((r) => r.верх && r.низ);
+  if (!раунды.length) throw new Error("в ролике не нашлось пар «одно или другое»");
+  state.rounds = раунды.map((r) => ({
+    top: r.верх,
+    bottom: r.низ,
+    pct: r.пв == null ? 50 : Math.max(20, Math.min(80, Math.round(Number(r.пв)) || 50)),
+    photos: {},
+    picks: {},
+  }));
+  if (data.тема) state.edition = String(data.тема).trim();
+  if (data.крючок) state.hook = String(data.крючок).trim();
+  сохранить();
+  рисовать();
+  if ($("hook")) $("hook").value = state.hook || "";
+  if ($("edition")) $("edition").value = state.edition || "";
+};
+
+$("кнопка-ролик").addEventListener("click", () => $("файл-ролик").click());
+$("файл-ролик").addEventListener("change", безопасно("разбор ролика", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  const пиши = (t) => { const s = $("ролик-статус"); if (s) s.textContent = t; };
+  try {
+    пиши("Читаю кадры из ролика…");
+    const { кадры, cw, ch } = await кадрыИзРолика(file, РАЗБОР_КАДРОВ);
+    if (!кадры.length) throw new Error("не удалось взять кадры");
+    пиши("Отправляю кадры нейросети, жду пары…");
+    const лист = await листИзКадров(кадры, cw, ch);
+    const data = await разборНейросетью(лист);
+    заполнитьИзРазбора(data);
+    const рус = String(data.язык || "").toLowerCase() === "ru";
+    пиши("Готово: пары в «Вопросах»" + (рус ? " (перевела с русского)" : "") +
+      ". Проверь их, потом подбери картинки.");
+  } catch (err) {
+    пиши("Не вышло: " + (err && err.message ? err.message : err) +
+      ". Попробуй ещё раз через минуту (у бесплатной нейросети лимит).");
+  }
 }));
 
 // Цвета половин — только для превью на этой странице. Ролик красит себя
@@ -6264,15 +6452,17 @@ $("выпуск-файлом").addEventListener("click", скачатьФайл�
 $("сохранить-настройки").addEventListener("click", () => {
   доступ.pexels = $("ключ-pexels").value.trim();
   доступ.токен = $("токен").value.trim();
+  доступ.нейро = $("ключ-нейро").value.trim();
   сохранитьДоступ();
   $("итог-проверки").textContent = "Сохранено.";
 });
 
 $("забыть-настройки").addEventListener("click", () => {
-  доступ = { pexels: "", токен: "" };
+  доступ = { pexels: "", токен: "", нейро: "" };
   сохранитьДоступ();
   $("ключ-pexels").value = "";
   $("токен").value = "";
+  $("ключ-нейро").value = "";
   $("итог-проверки").textContent = "Забыла. В этом телефоне ничего не осталось.";
 });
 
@@ -6552,6 +6742,7 @@ $("introOn").value = state.introOn || "да";
 $("outroOn").value = state.outroOn || "нет";
 $("ключ-pexels").value = доступ.pexels || "";
 $("токен").value = доступ.токен || "";
+$("ключ-нейро").value = доступ.нейро || "";
 рисовать();
 
 $("домой").addEventListener("click",
