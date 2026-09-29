@@ -93,6 +93,12 @@
   .кадр .полоса .счёт{color:#F7EFE4;font-size:5px;font-weight:700;flex:0 0 auto;
        background:#2b2019;border-radius:4px;padding:0 3px;line-height:1.4}
   .кадр .полоса i{flex:1;height:3px;background:#E8B65F;border-radius:2px}
+  /* Кадр можно открыть крупно — на весь экран, поверх всего. */
+  .кадрбокс .кадр{cursor:zoom-in}
+  .кадр-полный{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;
+       display:flex;align-items:center;justify-content:center;cursor:zoom-out}
+  .кадр-полный .закрыть{position:absolute;top:12px;right:16px;color:#fff;
+       font-size:30px;line-height:1;opacity:.85;background:none;border:0;padding:6px}
   /* ——— белый лист ———
      У этого оформления половин нет вовсе: весь кадр — один светлый лист,
      картинки лежат на нём вырезанными, подписи чёрные, посередине чёрный
@@ -402,8 +408,7 @@
       <button class="big turq" id="кнопка-ролик">🎬 Разобрать ролик из TikTok</button>
       <input type="file" id="файл-ролик" accept="video/*" class="hide">
       <div class="muted" id="ролик-статус" style="margin-top:6px">
-        Есть готовый ролик-викторина? Загрузи — сам вытащу пары (русские
-        переведу на английский). Нужен ключ OpenRouter в «Настройках доступа».
+        Загрузи чужой ролик — сам вытащу пары. Нужен ключ OpenRouter в настройках.
       </div>
     </div>
     <div id="pairs"></div>
@@ -414,17 +419,20 @@
 
     <h2>Как собирать</h2>
     <div class="card">
-      <label>Что ставить в кадр</label>
-      <select id="mode">
-        <option value="фото">фотографии из интернета</option>
-        <option value="видео">видеоклипы со стока</option>
-        <option value="свое">только мои файлы</option>
-      </select>
-      <label>План съёмки</label>
-      <select id="shot">
-        <option value="крупный">крупный — еда, предметы, цветы</option>
-        <option value="общий">общий — города, природа, машины, животные</option>
-      </select>
+      <!-- «Что ставить в кадр» и «План съёмки» скрыты: путали и обычно не
+           нужны. Элементы оставлены (сборка читает их значения), просто не
+           показываются. -->
+      <div class="hide">
+        <select id="mode">
+          <option value="фото">фотографии из интернета</option>
+          <option value="видео">видеоклипы со стока</option>
+          <option value="свое">только мои файлы</option>
+        </select>
+        <select id="shot">
+          <option value="крупный">крупный — еда, предметы, цветы</option>
+          <option value="общий">общий — города, природа, машины, животные</option>
+        </select>
+      </div>
       <label>Оформление</label>
       <select id="theme">
         <option value="терракота">терракота и бирюза — как было</option>
@@ -479,16 +487,8 @@
 
     <div class="card" id="подсказка-картинки">
       <div class="muted">
-        Нажми на любую строчку — покажу варианты. Выбираешь тот, что нравится.
-        Можно поставить своё фото с телефона.
-        Что не выберешь — подберётся само при сборке, но вслепую: там
-        уже никто не смотрит, и вместо суши может приехать что угодно.
-        Лучше пройти все строчки.
-        <br><br>
-        Своё видео тоже можно — обрежь его в галерее секунд до десяти.
-        Только учти: видео держится до отправки. Закроешь страницу
-        и вернёшься позже — его придётся выбрать заново (фотографии
-        так не теряются).
+        Нажми на строчку — покажу варианты, или поставь своё фото.
+        Что не выберешь, подберётся само при сборке.
       </div>
     </div>
 
@@ -500,9 +500,8 @@
     <div class="card кадрбокс" id="кадр-picts">
       <div class="кадр"></div>
       <div class="подсказка">
-        <b style="color:var(--cream)">Как встанет в кадр</b><br>
-        Те самые картинки, что выбраны выше. Листай вопросы — видно всё
-        до сборки.
+        <b style="color:var(--cream)">Как встанет в кадр</b>
+        <div class="muted" style="margin-top:4px">Нажми на кадр — покажу крупно.</div>
         <div class="листалка">
           <button class="крош раньше" aria-label="Предыдущий вопрос">‹</button>
           <span class="счётчик"></span>
@@ -2273,6 +2272,33 @@ $("файл-ролик").addEventListener("change", безопасно("разб
       ". Попробуй ещё раз через минуту (у бесплатной нейросети лимит).");
   }
 }));
+
+// ——— Кадр во весь экран ———
+// Превью маленькое; по нажатию показываем его крупно, чтобы разглядеть,
+// как ляжет картинка — особенно на белом листе.
+const открытьКадрПолный = (кадр) => {
+  if (!кадр) return;
+  const оверлей = document.createElement("div");
+  оверлей.className = "кадр-полный";
+  const клон = кадр.cloneNode(true);
+  клон.style.cursor = "default";
+  const бw = кадр.offsetWidth || 132;
+  const бh = кадр.offsetHeight || (бw * 16 / 9);
+  const k = Math.min((window.innerHeight * 0.9) / бh, (window.innerWidth * 0.92) / бw);
+  клон.style.transform = "scale(" + (k > 0 ? k : 1) + ")";
+  клон.style.transformOrigin = "center center";
+  оверлей.appendChild(клон);
+  const крест = document.createElement("button");
+  крест.type = "button"; крест.className = "закрыть"; крест.textContent = "✕";
+  крест.setAttribute("aria-label", "Закрыть");
+  оверлей.appendChild(крест);
+  оверлей.addEventListener("click", () => оверлей.remove());
+  document.body.appendChild(оверлей);
+};
+
+document.querySelectorAll(".кадрбокс .кадр").forEach((к) => {
+  к.addEventListener("click", () => открытьКадрПолный(к));
+});
 
 // Цвета половин — только для превью на этой странице. Ролик красит себя
 // сам по выбранному слову: сюда числа переписаны из THEMES
