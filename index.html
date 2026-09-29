@@ -401,6 +401,9 @@
     <div id="pairs"></div>
     <button class="big ghost" id="add">+ ещё вопрос</button>
 
+    <button class="big ghost" id="кнопка-промпты">✨ Промпты для картинок</button>
+    <div id="промпты-выход"></div>
+
     <h2>Как собирать</h2>
     <div class="card">
       <label>Что ставить в кадр</label>
@@ -1999,6 +2002,89 @@ $("add").addEventListener("click", () => {
   рисовать();
   window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
 });
+
+// ——— Промпты для картинок ———
+// Убирает самый муторный шаг: сочинять запрос под каждую картинку.
+// Берёт пары, пишет готовый «рекламный» промпт на каждый вариант —
+// чистый белый фон, чётко, сочно. Человек копирует в свою нейросеть
+// (Syntx / Midjourney / Flux), генерит и добавляет картинку кнопкой
+// «своё фото». Нейросеть на сайте намеренно не зовём: у бесплатных
+// генераторов либо водяной знак, либо платно, а промпт — бесплатно.
+const промптКартинки = (label) =>
+  "professional advertising product photography of " + label +
+  ", single subject centered, isolated on a plain solid pure white background, " +
+  "bright soft studio lighting, glossy, vivid vibrant colors, eye-catching, premium, " +
+  "ultra sharp focus, crisp, high detail, high resolution, commercial product shot, " +
+  "no props, no background objects, no text, no watermark";
+
+const копироватьТекст = async (текст, кнопка) => {
+  const ок = () => { кнопка.textContent = "Скопировано ✓"; setTimeout(() => (кнопка.textContent = "Копировать"), 1500); };
+  try {
+    await navigator.clipboard.writeText(текст);
+    ок();
+  } catch (e) {
+    // Запасной способ для старых телефонов, где clipboard недоступен.
+    const ta = document.createElement("textarea");
+    ta.value = текст; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand("copy"); ок(); }
+    catch (_) { кнопка.textContent = "выдели и скопируй сам"; }
+    ta.remove();
+  }
+};
+
+$("кнопка-промпты").addEventListener("click", безопасно("промпты для картинок", () => {
+  const выход = $("промпты-выход");
+  выход.innerHTML = "";
+
+  const пункты = [];
+  (state.rounds || []).forEach((r) => {
+    if ((r.top || "").trim()) пункты.push(r.top.trim());
+    if ((r.bottom || "").trim()) пункты.push(r.bottom.trim());
+  });
+
+  if (!пункты.length) {
+    const d = document.createElement("div");
+    d.className = "muted";
+    d.textContent = "Сначала впиши пары выше — тогда сделаю промпты.";
+    выход.appendChild(d);
+    return;
+  }
+
+  const инфо = document.createElement("div");
+  инфо.className = "muted";
+  инфо.style.margin = "8px 0";
+  инфо.textContent =
+    "Скопируй промпт, вставь в свою нейросеть (Syntx — Midjourney или Flux), " +
+    "сгенери картинку на белом фоне и сохрани. Потом добавь её кнопкой «своё фото» " +
+    "у нужной картинки. Для еды допиши в конце: juicy, appetizing, fresh.";
+  выход.appendChild(инфо);
+
+  пункты.forEach((label) => {
+    const текст = промптКартинки(label);
+    const card = document.createElement("div");
+    card.className = "card";
+
+    const имя = document.createElement("b");
+    имя.textContent = label;
+    card.appendChild(имя);
+
+    const тело = document.createElement("div");
+    тело.className = "muted";
+    тело.style.cssText = "font-size:12px;margin:4px 0;word-break:break-word";
+    тело.textContent = текст;
+    card.appendChild(тело);
+
+    const кноп = document.createElement("button");
+    кноп.type = "button";
+    кноп.className = "крош";
+    кноп.textContent = "Копировать";
+    кноп.addEventListener("click", () => копироватьТекст(текст, кноп));
+    card.appendChild(кноп);
+
+    выход.appendChild(card);
+  });
+}));
 
 // Цвета половин — только для превью на этой странице. Ролик красит себя
 // сам по выбранному слову: сюда числа переписаны из THEMES
