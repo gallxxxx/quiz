@@ -1421,7 +1421,7 @@ const кадрЭтоИлиТо = (холст, номер = 0) => {
     // ничего не рисует. Из-за этого предпросмотр после «своё фото»
     // оставался пустым, будто картинка не загрузилась.
     const адрес = (выбор && (выбор.показ || выбор.ссылка))
-      || (своё ? "data:image/jpeg;base64," + своё : "");
+      || (своё ? датаКартинка(своё) : "");
     if (адрес) с.style.backgroundImage = вФон(адрес);
 
     // Если вырез уже сделан — в кадре должен быть ОН: в ролик уедет
@@ -1761,6 +1761,17 @@ const размерКадра = (ш, в) => {
   };
 };
 
+// Тип картинки по первым байтам base64 — данные храним голыми, без
+// шапки «data:...», а форматам она нужна разная. PNG держит прозрачность,
+// JPEG нет; спутать — значит либо не показать, либо потерять вырез.
+const типКартинки = (b64) => {
+  const s = String(b64 || "");
+  if (s.startsWith("iVBOR")) return "image/png";
+  if (s.startsWith("UklGR")) return "image/webp";
+  return "image/jpeg";
+};
+const датаКартинка = (b64) => "data:" + типКартинки(b64) + ";base64," + b64;
+
 const ужать = (file) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1773,8 +1784,24 @@ const ужать = (file) =>
         const canvas = document.createElement("canvas");
         canvas.width = цель.ш;
         canvas.height = цель.в;
-        canvas.getContext("2d").drawImage(img, 0, 0, цель.ш, цель.в);
-        const data = canvas.toDataURL("image/jpeg", 0.82);
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, цель.ш, цель.в);
+        // Картинка «без фона» (прозрачная) в JPEG превращается в ЧЁРНЫЙ
+        // прямоугольник — у JPEG альфы нет. Такую отдаём PNG, чтобы на
+        // белом листе предмет лёг на лист, а не на чёрное. Смотрим сами
+        // точки: у JPEG-источника альфа везде 255, у выреза — нет.
+        let прозрачное = false;
+        if (/png|webp|gif/i.test(file.type || "")) {
+          try {
+            const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            for (let i = 3; i < d.length; i += 4) {
+              if (d[i] < 250) { прозрачное = true; break; }
+            }
+          } catch (e) { прозрачное = false; }
+        }
+        const data = прозрачное
+          ? canvas.toDataURL("image/png")
+          : canvas.toDataURL("image/jpeg", 0.82);
         resolve(data.slice(data.indexOf(",") + 1));
       };
       img.src = reader.result;
@@ -1896,7 +1923,7 @@ const рисовать = () => {
     el.querySelectorAll(".photo").forEach((slot) => {
       const side = slot.dataset.side;
       if (r.photos && r.photos[side]) {
-        slot.style.backgroundImage = 'url(data:image/jpeg;base64,' + r.photos[side] + ")";
+        slot.style.backgroundImage = 'url(' + датаКартинка(r.photos[side]) + ")";
         slot.textContent = "";
       }
       slot.addEventListener("click", () => {
@@ -2306,7 +2333,7 @@ const вБазу64 = (blob) => new Promise((готово, беда) => {
 // Что резать: одобренная ссылка со стока или своё фото из черновика.
 const чтоРезать = (r, side) => {
   const своё = r.photos?.[side];
-  if (своё) return "data:image/jpeg;base64," + своё;
+  if (своё) return датаКартинка(своё);
   const выбор = r.picks?.[side];
   // Режем КРУПНУЮ картинку, а не превьюшку: с маленькой края выходят
   // рваными, и на сборке всё равно берётся крупная.
@@ -2473,7 +2500,7 @@ const рисоватьСлоты = () => {
     const превью = своёВидео
       ? своёВидео.кадр
       : своё
-        ? "data:image/jpeg;base64," + своё
+        ? датаКартинка(своё)
         : выбор
           ? выбор.показ || выбор.ссылка
           : "";
@@ -5657,7 +5684,7 @@ const q10РисоватьСлоты = () => {
       фотоСнимок(выбор).then((снимок) => {
         if (снимок) {
           пре.style.backgroundImage =
-            'url("data:image/jpeg;base64,' + снимок + '")';
+            'url("' + датаКартинка(снимок) + '")';
         }
       }).catch(() => {});
     } else if (авто) {
