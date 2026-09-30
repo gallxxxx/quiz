@@ -2047,12 +2047,13 @@ $("add").addEventListener("click", () => {
 // генераторов либо водяной знак, либо платно, а промпт — бесплатно.
 const промптКартинки = (label) =>
   "professional advertising product photography of " + label +
-  ", single subject centered, on a pure flat solid white background #FFFFFF, " +
+  ", hero subject centered, on a pure flat solid white background #FFFFFF, " +
   "seamless plain white backdrop, no gray, no off-white, no gradient, no shadows, " +
-  "no reflections, no floor, no surface, background evenly lit and completely white, " +
-  "the object itself with glossy vivid vibrant colors, bright even lighting, " +
-  "ultra sharp focus, crisp, high detail, high resolution, commercial product shot, " +
-  "no props, no text, no watermark";
+  "no reflections, no floor, background evenly lit and completely white; " +
+  "if the subject is food, make it appetizing and mouth-watering — add a small glass bowl " +
+  "of ketchup or dipping sauce beside it and light fresh garnish, styled like a fast-food " +
+  "advertisement; glossy vivid vibrant colors, bright even lighting, ultra sharp focus, " +
+  "crisp, high detail, high resolution, commercial product shot, no text, no watermark";
 
 const копироватьТекст = async (текст, кнопка) => {
   const ок = () => { кнопка.textContent = "Скопировано ✓"; setTimeout(() => (кнопка.textContent = "Копировать"), 1500); };
