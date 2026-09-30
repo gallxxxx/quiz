@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-09-30-1";
+window.__ВЕРСИЯ = "2026-10-01-1";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -2178,9 +2178,30 @@ const ПРОМПТ_РАЗБОР =
 const вытащитьJSONброузер = (текст) => {
   let s = String(текст || "").trim();
   s = s.replace(/```json/gi, "").replace(/```/g, "").trim();
-  const a = s.indexOf("{"), b = s.lastIndexOf("}");
-  if (a >= 0 && b > a) s = s.slice(a, b + 1);
-  return JSON.parse(s);
+  const a = s.indexOf("{");
+  if (a >= 0) s = s.slice(a);
+  const b = Math.max(s.lastIndexOf("}"), s.lastIndexOf("]"));
+  if (b > 0) s = s.slice(0, b + 1);
+  const чисто = (x) => x.replace(/,\s*([}\]])/g, "$1"); // висячие запятые
+  try { return JSON.parse(чисто(s)); } catch (e) { /* чиним ниже */ }
+
+  // Бесплатная модель часто ОБРЫВАЕТ ответ на полуслове. Чиним: закрываем
+  // недостающие скобки по балансу, отрезаем оборванный хвост.
+  let inStr = false, esc = false;
+  const stack = [];
+  let str = s;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (inStr) { if (esc) esc = false; else if (ch === "\\") esc = true; else if (ch === '"') inStr = false; continue; }
+    if (ch === '"') inStr = true;
+    else if (ch === "{" || ch === "[") stack.push(ch);
+    else if (ch === "}" || ch === "]") stack.pop();
+  }
+  if (inStr) { const q = str.lastIndexOf('"'); if (q > 0) str = str.slice(0, q); }
+  str = str.replace(/[,:]\s*$/, "");
+  let хвост = "";
+  for (let i = stack.length - 1; i >= 0; i--) хвост += (stack[i] === "{" ? "}" : "]");
+  return JSON.parse(чисто(str + хвост));
 };
 
 // Кадры из ролика: перематываем видео по точкам и рисуем на холст.
@@ -2234,49 +2255,77 @@ const листИзКадров = async (кадры, cw, ch) => {
   return c.toDataURL("image/jpeg", 0.85);
 };
 
-// Спрашиваем нейросеть (OpenRouter). Модель берём живую из списка.
-const разборНейросетью = async (листDataUrl) => {
+// Спрашиваем нейросеть (OpenRouter). Бесплатные модели капризны — то
+// отдают кривой JSON, то срываются. Поэтому берём НЕСКОЛЬКО моделей и
+// пробуем по очереди, с повторами: первая же, что дала нормальные пары,
+// и побеждает.
+const разборНейросетью = async (листDataUrl, статус) => {
   const ключ = (доступ.нейро || "").trim();
   if (!ключ) throw new Error("нет ключа OpenRouter — впиши его в «Настройках доступа»");
 
-  // Модель должна УМЕТЬ КАРТИНКИ (vision) — многие «:free» их не берут и
-  // отвечают 404 «No endpoints support image input». Поэтому берём живую
-  // gemini-flash (она видит картинки и проходит с ключом человека),
-  // «image/thinking/audio» из имени исключаем (это генераторы, не зрение).
-  let model = "google/gemini-flash-1.5";
+  // Собираем кандидатов: gemini-flash (они видят картинки). Из имени
+  // выкидываем генераторы картинок и прочее не-зрение.
+  let кандидаты = [];
   try {
     const rm = await fetch("https://openrouter.ai/api/v1/models");
     const jm = await rm.json();
     const ids = (jm.data || []).map((m) => String(m.id || ""));
-    const без = (x) => !/image|thinking|audio|tts/i.test(x);
-    model = ids.find((x) => /gemini[\-.]?[0-9].*flash/i.test(x) && без(x))
-         || ids.find((x) => /gemini.*flash/i.test(x) && без(x))
-         || model;
-  } catch (e) { /* не вышло — идём с запасной моделью */ }
+    const без = (x) => !/image-gen|thinking|audio|tts|embed|imagen/i.test(x);
+    кандидаты = ids.filter((x) => /gemini[\-.]?[0-9].*flash/i.test(x) && без(x))
+      .concat(ids.filter((x) => /gemini.*flash/i.test(x) && без(x)));
+  } catch (e) { /* список не дали — ниже запасные */ }
+  кандидаты = кандидаты.concat([
+    "google/gemini-flash-1.5",
+    "google/gemini-flash-1.5-8b",
+    "google/gemini-2.0-flash-001",
+  ]);
+  кандидаты = кандидаты.filter((v, i, a) => v && a.indexOf(v) === i).slice(0, 5);
 
-  const body = {
+  const тело = (model) => JSON.stringify({
     model,
     messages: [{ role: "user", content: [
       { type: "text", text: ПРОМПТ_РАЗБОР },
       { type: "image_url", image_url: { url: листDataUrl } },
     ] }],
     temperature: 0,
-    max_tokens: 2048,
+    max_tokens: 4096,
     response_format: { type: "json_object" },
-  };
-  const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: "Bearer " + ключ },
-    body: JSON.stringify(body),
   });
-  if (!r.ok) {
-    const t = await r.text().catch(() => "");
-    throw new Error("нейросеть ответила " + r.status + " " + t.slice(0, 100));
+
+  const пауза = (ms) => new Promise((r) => setTimeout(r, ms));
+  let последняя = "не ответила";
+
+  for (const model of кандидаты) {
+    for (let попытка = 0; попытка < 2; попытка++) {
+      try {
+        if (статус) статус("Читаю кадры нейросетью…");
+        const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + ключ },
+          body: тело(model),
+        });
+        if (!r.ok) {
+          const t = await r.text().catch(() => "");
+          последняя = r.status + " " + t.slice(0, 120);
+          // Модель не годится (не берёт картинки / нет такой) — к следующей.
+          if (r.status === 404 || /no endpoints|image input|not a valid|not found/i.test(последняя)) break;
+          // Лимит или сбой сервера — повторим эту же.
+          if (r.status === 429 || r.status >= 500) { await пауза(3000); continue; }
+          break;
+        }
+        const j = await r.json();
+        const txt = j.choices?.[0]?.message?.content;
+        if (!txt) { последняя = "пустой ответ"; continue; }
+        const data = вытащитьJSONброузер(txt);
+        if (data && Array.isArray(data.раунды) && data.раунды.length) return data;
+        последняя = "кривой ответ";
+      } catch (e) {
+        последняя = String((e && e.message) || e); // «Load failed» и т.п.
+        await пауза(1500);
+      }
+    }
   }
-  const j = await r.json();
-  const txt = j.choices?.[0]?.message?.content;
-  if (!txt) throw new Error("пустой ответ нейросети");
-  return вытащитьJSONброузер(txt);
+  throw new Error(последняя);
 };
 
 const заполнитьИзРазбора = (data) => {
@@ -2312,7 +2361,7 @@ $("файл-ролик").addEventListener("change", безопасно("разб
     if (!кадры.length) throw new Error("не удалось взять кадры");
     пиши("Отправляю кадры нейросети, жду пары…");
     const лист = await листИзКадров(кадры, cw, ch);
-    const data = await разборНейросетью(лист);
+    const data = await разборНейросетью(лист, пиши);
     заполнитьИзРазбора(data);
     const рус = String(data.язык || "").toLowerCase() === "ru";
     пиши("Готово: пары в «Вопросах»" + (рус ? " (перевела с русского)" : "") +
@@ -2338,11 +2387,6 @@ const открытьКадрПолный = (кадр, листаемый) => {
   центр.addEventListener("click", (e) => e.stopPropagation());
   оверлей.appendChild(центр);
 
-  const статусЭл = document.createElement("div");
-  статусЭл.className = "кадр-полный-статус";
-  оверлей.appendChild(статусЭл);
-  const статус = (t) => { статусЭл.textContent = t || ""; };
-
   const показать = () => {
     центр.innerHTML = "";
     // Для листаемого берём свежий кадр (его перерисовал «рисоватьКадр»).
@@ -2357,44 +2401,6 @@ const открытьКадрПолный = (кадр, листаемый) => {
     центр.appendChild(клон);
   };
   показать();
-
-  // На белом листе показываем ВЫРЕЗАННУЮ картинку — как в готовом ролике
-  // (там фон убирается сам). Режем лениво, только видимый кадр, и один
-  // раз: готовый вырез запоминается и уедет в ролик — что видишь, то и
-  // будет. Не режем то, что помечено «оставить как есть», и клипы.
-  let режетсяСейчас = false;
-  const автоВырез = async () => {
-    if (!листаемый || state.theme !== "белое" || режетсяСейчас) return;
-    const r = (state.rounds || [])[листКадра];
-    if (!r) return;
-    режетсяСейчас = true;
-    let резал = false;
-    try {
-      for (const side of ["top", "bottom"]) {
-        if (r.вырезано && r.вырезано[side]) continue;   // уже вырезан
-        if (r.безВыреза && r.безВыреза[side]) continue;  // «оставить как есть»
-        const адрес = чтоРезать(r, side);
-        if (!адрес) continue;                            // нечего резать (пусто/клип)
-        try {
-          const blob = await вырезатьФон(адрес, статус);
-          const б64 = await вБазу64(blob);
-          if (б64) { await запомнитьВырез(r, side, б64); резал = true; }
-        } catch (e) { /* не вышло — машина дорежет на сборке */ }
-      }
-    } finally {
-      режетсяСейчас = false;
-      статус("");
-    }
-    if (резал) {
-      сохранить();
-      рисоватьКадр("picts");
-      // Кадр подставляет вырез в снимок АСИНХРОННО (достаёт из базы). Ждём
-      // чуть-чуть, иначе клон возьмёт ещё сырую картинку с чёрным фоном.
-      await new Promise((r) => setTimeout(r, 700));
-      показать();
-    }
-  };
-  автоВырез();
 
   const крест = document.createElement("button");
   крест.type = "button"; крест.className = "закрыть"; крест.textContent = "✕";
@@ -2429,7 +2435,6 @@ const открытьКадрПолный = (кадр, листаемый) => {
       рисоватьКадр("picts"); // обновит и маленький кадр под списком
       показать();
       обновить();
-      автоВырез();
     };
     влево.addEventListener("click", (e) => { e.stopPropagation(); листни(-1); });
     вправо.addEventListener("click", (e) => { e.stopPropagation(); листни(1); });
