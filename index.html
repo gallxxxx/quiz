@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-01-1";
+window.__ВЕРСИЯ = "2026-10-01-2";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -2098,7 +2098,63 @@ const копироватьТекст = async (текст, кнопка) => {
   }
 };
 
-$("кнопка-промпты").addEventListener("click", безопасно("промпты для картинок", () => {
+// Нейросеть САМА придумывает промпт под КАЖДЫЙ предмет: думает, что к нему
+// уместно (бургеру — ничего лишнего, картошке — кетчуп, наггетсам — соус,
+// машине — просто предмет). Возвращает карту «подпись → промпт».
+const промптыОтНейросети = async (пункты) => {
+  const ключ = (доступ.нейро || "").trim();
+  if (!ключ) throw new Error("нет ключа OpenRouter");
+
+  let model = "google/gemini-2.5-flash";
+  try {
+    const rm = await fetch("https://openrouter.ai/api/v1/models");
+    const jm = await rm.json();
+    const ids = (jm.data || []).map((m) => String(m.id || ""));
+    model = ids.find((x) => /gemini.*flash/i.test(x) && !/image|imagen|audio|tts|embed|:batch/i.test(x)) || model;
+  } catch (e) { /* запасная модель */ }
+
+  const МЕТА =
+    "Ты помогаешь делать картинки для видео-викторины «это или то».\n" +
+    "Ниже список предметов/блюд. Для КАЖДОГО придумай короткий промпт на\n" +
+    "АНГЛИЙСКОМ для генерации ОДНОЙ картинки этого предмета крупным планом.\n\n" +
+    "Правила для каждого промпта:\n" +
+    "- фон строго ЧИСТО БЕЛЫЙ (pure flat white #FFFFFF), без теней, градиентов, пола;\n" +
+    "- один герой по центру, аппетитно/эффектно, резко, high detail, реклама; no text, no watermark;\n" +
+    "- ПРОДУМАЙ, что уместно ИМЕННО этому предмету:\n" +
+    "  * еда, которую едят с соусом (fries, nuggets, wings, onion rings, mozzarella sticks) — добавь подходящий соус/дип рядом (fries -> ketchup, nuggets -> dipping sauce);\n" +
+    "  * самодостаточная еда (burger, shawarma, pizza, hot dog, sandwich, taco, sushi) — БЕЗ лишних соусов и зелени, просто сам предмет, красиво;\n" +
+    "  * НЕ добавляй петрушку, зелень, случайные гарниры не к месту;\n" +
+    "  * не-еда (машина, город, животное, гаджет, здание) — обычное рекламное фото предмета, без всякой еды и соусов.\n\n" +
+    "Верни ТОЛЬКО JSON: {\"промпты\":[{\"подпись\":\"...\",\"промпт\":\"...\"}]}. Подписи — ДОСЛОВНО из списка.\n\n" +
+    "Список:\n" + пункты.map((p, i) => (i + 1) + ". " + p).join("\n");
+
+  const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + ключ },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "user", content: МЕТА }],
+      temperature: 0.4,
+      max_tokens: 4096,
+      response_format: { type: "json_object" },
+    }),
+  });
+  if (!r.ok) throw new Error("нейросеть " + r.status);
+  const j = await r.json();
+  const txt = j.choices?.[0]?.message?.content;
+  if (!txt) throw new Error("пустой ответ");
+  const data = вытащитьJSONброузер(txt);
+  const карта = new Map();
+  (data.промпты || data.prompts || []).forEach((p) => {
+    const k = String(p.подпись || p.label || "").trim().toLowerCase();
+    const v = String(p.промпт || p.prompt || "").trim();
+    if (k && v) карта.set(k, v);
+  });
+  if (!карта.size) throw new Error("нет промптов");
+  return карта;
+};
+
+$("кнопка-промпты").addEventListener("click", безопасно("промпты для картинок", async () => {
   const выход = $("промпты-выход");
   выход.innerHTML = "";
 
@@ -2116,17 +2172,22 @@ $("кнопка-промпты").addEventListener("click", безопасно("�
     return;
   }
 
+  выход.textContent = "Нейросеть придумывает промпт под каждое… (несколько секунд)";
+
+  let карта = null;
+  try { карта = await промптыОтНейросети(пункты); } catch (e) { карта = null; }
+
+  выход.innerHTML = "";
   const инфо = document.createElement("div");
   инфо.className = "muted";
   инфо.style.margin = "8px 0";
-  инфо.textContent =
-    "Скопируй промпт, вставь в свою нейросеть (Syntx — Midjourney или Flux), " +
-    "сгенери картинку на белом фоне и сохрани. Потом добавь её кнопкой «своё фото» " +
-    "у нужной картинки. Для еды допиши в конце: juicy, appetizing, fresh.";
+  инфо.textContent = карта
+    ? "Промпты продуманы под каждое (бургеру — ничего лишнего, картошке — кетчуп и т.п.). Скопируй, вставь в свою нейросеть, сгенери на белом фоне и добавь кнопкой «своё фото»."
+    : "Нейросеть не ответила (лимит?) — дала простые промпты по шаблону. Можешь нажать ещё раз через минуту. Скопируй, вставь в свою нейросеть, добавь кнопкой «своё фото».";
   выход.appendChild(инфо);
 
   пункты.forEach((label) => {
-    const текст = промптКартинки(label);
+    const текст = (карта && карта.get(label.toLowerCase())) || промптКартинки(label);
     const card = document.createElement("div");
     card.className = "card";
 
@@ -2270,14 +2331,14 @@ const разборНейросетью = async (листDataUrl, статус) =
     const rm = await fetch("https://openrouter.ai/api/v1/models");
     const jm = await rm.json();
     const ids = (jm.data || []).map((m) => String(m.id || ""));
-    const без = (x) => !/image-gen|thinking|audio|tts|embed|imagen/i.test(x);
+    const без = (x) => !/image|thinking|audio|tts|embed|imagen|:batch/i.test(x);
     кандидаты = ids.filter((x) => /gemini[\-.]?[0-9].*flash/i.test(x) && без(x))
       .concat(ids.filter((x) => /gemini.*flash/i.test(x) && без(x)));
   } catch (e) { /* список не дали — ниже запасные */ }
   кандидаты = кандидаты.concat([
-    "google/gemini-flash-1.5",
-    "google/gemini-flash-1.5-8b",
-    "google/gemini-2.0-flash-001",
+    "google/gemini-2.5-flash",
+    "google/gemini-3.5-flash",
+    "google/gemini-flash-latest",
   ]);
   кандидаты = кандидаты.filter((v, i, a) => v && a.indexOf(v) === i).slice(0, 5);
 
