@@ -109,6 +109,8 @@
   .кадр-полный .стрелка:disabled{opacity:.2}
   .кадр-полный-счёт{position:absolute;left:0;right:0;bottom:20px;text-align:center;
        color:#fff;font-weight:700;opacity:.85;font-size:15px}
+  .кадр-полный-статус{position:absolute;left:0;right:0;top:14px;text-align:center;
+       color:#fff;font-weight:600;opacity:.9;font-size:14px;pointer-events:none;padding:0 50px}
   /* Приглушённые кнопки: главная в строке — «Своё фото», остальные тише. */
   .тусклая{opacity:.5}
   .крош.выбран{opacity:1}
@@ -2305,6 +2307,11 @@ const открытьКадрПолный = (кадр, листаемый) => {
   центр.addEventListener("click", (e) => e.stopPropagation());
   оверлей.appendChild(центр);
 
+  const статусЭл = document.createElement("div");
+  статусЭл.className = "кадр-полный-статус";
+  оверлей.appendChild(статусЭл);
+  const статус = (t) => { статусЭл.textContent = t || ""; };
+
   const показать = () => {
     центр.innerHTML = "";
     // Для листаемого берём свежий кадр (его перерисовал «рисоватьКадр»).
@@ -2319,6 +2326,44 @@ const открытьКадрПолный = (кадр, листаемый) => {
     центр.appendChild(клон);
   };
   показать();
+
+  // На белом листе показываем ВЫРЕЗАННУЮ картинку — как в готовом ролике
+  // (там фон убирается сам). Режем лениво, только видимый кадр, и один
+  // раз: готовый вырез запоминается и уедет в ролик — что видишь, то и
+  // будет. Не режем то, что помечено «оставить как есть», и клипы.
+  let режетсяСейчас = false;
+  const автоВырез = async () => {
+    if (!листаемый || state.theme !== "белое" || режетсяСейчас) return;
+    const r = (state.rounds || [])[листКадра];
+    if (!r) return;
+    режетсяСейчас = true;
+    let резал = false;
+    try {
+      for (const side of ["top", "bottom"]) {
+        if (r.вырезано && r.вырезано[side]) continue;   // уже вырезан
+        if (r.безВыреза && r.безВыреза[side]) continue;  // «оставить как есть»
+        const адрес = чтоРезать(r, side);
+        if (!адрес) continue;                            // нечего резать (пусто/клип)
+        try {
+          const blob = await вырезатьФон(адрес, статус);
+          const б64 = await вБазу64(blob);
+          if (б64) { await запомнитьВырез(r, side, б64); резал = true; }
+        } catch (e) { /* не вышло — машина дорежет на сборке */ }
+      }
+    } finally {
+      режетсяСейчас = false;
+      статус("");
+    }
+    if (резал) {
+      сохранить();
+      рисоватьКадр("picts");
+      // Кадр подставляет вырез в снимок АСИНХРОННО (достаёт из базы). Ждём
+      // чуть-чуть, иначе клон возьмёт ещё сырую картинку с чёрным фоном.
+      await new Promise((r) => setTimeout(r, 700));
+      показать();
+    }
+  };
+  автоВырез();
 
   const крест = document.createElement("button");
   крест.type = "button"; крест.className = "закрыть"; крест.textContent = "✕";
@@ -2353,6 +2398,7 @@ const открытьКадрПолный = (кадр, листаемый) => {
       рисоватьКадр("picts"); // обновит и маленький кадр под списком
       показать();
       обновить();
+      автоВырез();
     };
     влево.addEventListener("click", (e) => { e.stopPropagation(); листни(-1); });
     вправо.addEventListener("click", (e) => { e.stopPropagation(); листни(1); });
