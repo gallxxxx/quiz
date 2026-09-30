@@ -12,6 +12,33 @@
 <meta name="apple-mobile-web-app-title" content="Викторины">
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="manifest" href="manifest.webmanifest">
+<!-- Просим браузер не держать старую страницу. Айфон всё равно кэширует
+     агрессивно, поэтому ниже ещё и авто-проверка свежести. -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<script>
+// ВСЕГДА СВЕЖАЯ ВЕРСИЯ. Телефон часто показывал старую страницу из кэша,
+// и правки будто «не приезжали». Теперь при каждом открытии тихо
+// спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
+// на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
+window.__ВЕРСИЯ = "2026-09-30-1";
+(function () {
+  try {
+    var сейчас = new URLSearchParams(location.search).get("v");
+    fetch(location.pathname + "?probe=" + Date.now(), { cache: "no-store" })
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        var m = t.match(/__ВЕРСИЯ\s*=\s*"([^"]+)"/);
+        // Нашли версию новее — и мы ещё не на ней (защита от петли): грузим её.
+        if (m && m[1] !== window.__ВЕРСИЯ && сейчас !== m[1]) {
+          location.replace(location.pathname + "?v=" + m[1]);
+        }
+      })
+      .catch(function () {});
+  } catch (e) {}
+})();
+</script>
 <style>
   :root{ --terra:#C1613C; --terra-dark:#A44E2E; --turq:#12888A; --cream:#F7EFE4;
          --ink:#1B1310; --gold:#E8B65F; --line:#3a2a22; --panel:#241a15; }
