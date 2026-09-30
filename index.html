@@ -86,7 +86,7 @@
   .кадр .снимок{width:74%;aspect-ratio:16/9;background:#2c201a center/cover no-repeat;
        margin:5px 0}
   .кадр .подпись{color:#fff;font-weight:800;font-size:7.5px;text-align:center;
-       text-shadow:0 1px 2px rgba(0,0,0,.45);padding:0 4px;max-width:92%}
+       line-height:1.05;text-shadow:0 1px 2px rgba(0,0,0,.45);padding:0 4px;max-width:92%}
   .кадр .полоса{position:absolute;left:0;right:0;top:calc(50% - 4px);height:8px;
        background:#1B1310;border-top:1px solid #F7EFE4;border-bottom:1px solid #F7EFE4;
        display:flex;align-items:center;gap:3px;padding:0 3px}
@@ -1438,8 +1438,10 @@ const кадрЭтоИлиТо = (холст, номер = 0) => {
   половины[0].style.background = лист ? "transparent" : верх;
   половины[1].style.background = лист ? "transparent" : низ;
   const подписи = холст.querySelectorAll(".подпись");
-  подписи[0].textContent = кусокТекста(раунд.top, 18) || "сверху";
-  подписи[1].textContent = кусокТекста(раунд.bottom, 18) || "снизу";
+  // Подпись НЕ обрезаем: в готовом ролике текст показан целиком (переносом),
+  // и предпросмотр должен показывать так же. Перенос делает сам CSS.
+  подписи[0].textContent = (раунд.top || "").trim() || "сверху";
+  подписи[1].textContent = (раунд.bottom || "").trim() || "снизу";
   холст.querySelectorAll(".снимок").forEach((с, i) => {
     // У белого листа края не бывает: картинка и так лежит без рамки,
     // вырезанная. Рамка или растворяющийся край тут были бы враньём.
