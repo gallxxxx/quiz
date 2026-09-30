@@ -99,6 +99,19 @@
        display:flex;align-items:center;justify-content:center;cursor:zoom-out}
   .кадр-полный .закрыть{position:absolute;top:12px;right:16px;color:#fff;
        font-size:30px;line-height:1;opacity:.85;background:none;border:0;padding:6px}
+  .кадр-полный-центр{display:flex;align-items:center;justify-content:center}
+  .кадр-полный .стрелка{position:absolute;top:50%;transform:translateY(-50%);
+       width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.16);
+       color:#fff;font-size:32px;line-height:1;border:0;display:flex;
+       align-items:center;justify-content:center}
+  .кадр-полный .стрелка.влево{left:10px}
+  .кадр-полный .стрелка.вправо{right:10px}
+  .кадр-полный .стрелка:disabled{opacity:.2}
+  .кадр-полный-счёт{position:absolute;left:0;right:0;bottom:20px;text-align:center;
+       color:#fff;font-weight:700;opacity:.85;font-size:15px}
+  /* Приглушённые кнопки: главная в строке — «Своё фото», остальные тише. */
+  .тусклая{opacity:.5}
+  .крош.выбран{opacity:1}
   /* ——— белый лист ———
      У этого оформления половин нет вовсе: весь кадр — один светлый лист,
      картинки лежат на нём вырезанными, подписи чёрные, посередине чёрный
@@ -2276,28 +2289,88 @@ $("файл-ролик").addEventListener("change", безопасно("разб
 // ——— Кадр во весь экран ———
 // Превью маленькое; по нажатию показываем его крупно, чтобы разглядеть,
 // как ляжет картинка — особенно на белом листе.
-const открытьКадрПолный = (кадр) => {
+const открытьКадрПолный = (кадр, листаемый) => {
   if (!кадр) return;
   const оверлей = document.createElement("div");
   оверлей.className = "кадр-полный";
-  const клон = кадр.cloneNode(true);
-  клон.style.cursor = "default";
-  const бw = кадр.offsetWidth || 132;
-  const бh = кадр.offsetHeight || (бw * 16 / 9);
-  const k = Math.min((window.innerHeight * 0.9) / бh, (window.innerWidth * 0.92) / бw);
-  клон.style.transform = "scale(" + (k > 0 ? k : 1) + ")";
-  клон.style.transformOrigin = "center center";
-  оверлей.appendChild(клон);
+
+  // Кадр по центру. Тап по самому кадру не закрывает — закрывает тёмный
+  // фон, крестик или свайп.
+  const центр = document.createElement("div");
+  центр.className = "кадр-полный-центр";
+  центр.addEventListener("click", (e) => e.stopPropagation());
+  оверлей.appendChild(центр);
+
+  const показать = () => {
+    центр.innerHTML = "";
+    // Для листаемого берём свежий кадр (его перерисовал «рисоватьКадр»).
+    const src = листаемый ? (document.querySelector("#кадр-picts .кадр") || кадр) : кадр;
+    const клон = src.cloneNode(true);
+    клон.style.cursor = "default";
+    const бw = src.offsetWidth || 132;
+    const бh = src.offsetHeight || (бw * 16 / 9);
+    const k = Math.min((window.innerHeight * 0.82) / бh, (window.innerWidth * 0.9) / бw);
+    клон.style.transform = "scale(" + (k > 0 ? k : 1) + ")";
+    клон.style.transformOrigin = "center center";
+    центр.appendChild(клон);
+  };
+  показать();
+
   const крест = document.createElement("button");
   крест.type = "button"; крест.className = "закрыть"; крест.textContent = "✕";
   крест.setAttribute("aria-label", "Закрыть");
+  крест.addEventListener("click", (e) => { e.stopPropagation(); оверлей.remove(); });
   оверлей.appendChild(крест);
+
+  if (листаемый) {
+    const счёт = document.createElement("div");
+    счёт.className = "кадр-полный-счёт";
+    оверлей.appendChild(счёт);
+
+    const стрелка = (сторона, знак) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "стрелка " + сторона; b.textContent = знак;
+      b.setAttribute("aria-label", сторона === "влево" ? "Предыдущий" : "Следующий");
+      оверлей.appendChild(b);
+      return b;
+    };
+    const влево = стрелка("влево", "‹");
+    const вправо = стрелка("вправо", "›");
+
+    const обновить = () => {
+      const всего = (state.rounds || []).length;
+      влево.disabled = листКадра <= 0;
+      вправо.disabled = листКадра >= всего - 1;
+      счёт.textContent = всего ? (листКадра + 1) + " / " + всего : "";
+    };
+    const листни = (шаг) => {
+      const всего = (state.rounds || []).length;
+      листКадра = Math.max(0, Math.min(всего - 1, листКадра + шаг));
+      рисоватьКадр("picts"); // обновит и маленький кадр под списком
+      показать();
+      обновить();
+    };
+    влево.addEventListener("click", (e) => { e.stopPropagation(); листни(-1); });
+    вправо.addEventListener("click", (e) => { e.stopPropagation(); листни(1); });
+    обновить();
+
+    // Свайп влево/вправо.
+    let x0 = null;
+    оверлей.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; }, { passive: true });
+    оверлей.addEventListener("touchend", (e) => {
+      if (x0 == null) return;
+      const dx = e.changedTouches[0].clientX - x0;
+      x0 = null;
+      if (Math.abs(dx) > 40) листни(dx < 0 ? 1 : -1);
+    }, { passive: true });
+  }
+
   оверлей.addEventListener("click", () => оверлей.remove());
   document.body.appendChild(оверлей);
 };
 
 document.querySelectorAll(".кадрбокс .кадр").forEach((к) => {
-  к.addEventListener("click", () => открытьКадрПолный(к));
+  к.addEventListener("click", () => открытьКадрПолный(к, к.closest("#кадр-picts") != null));
 });
 
 // Цвета половин — только для превью на этой странице. Ролик красит себя
@@ -2832,17 +2905,17 @@ const рисоватьСлоты = () => {
         // нажатия вместо одного. Само окно выбора — айфоново, его с
         // веб-страницы не пропустить, но дорогу до него укоротить можно.
         '<div class="ручки">' +
-          '<button class="big small ghost открыть">Выбрать</button>' +
-          '<button class="big small ghost моё-сразу">Своё фото</button>' +
+          '<button class="big small turq моё-сразу">📷 Своё фото</button>' +
+          '<button class="big small ghost тусклая открыть">Выбрать</button>' +
         "</div>" +
       "</div>" +
       '<div class="vars hide"></div>' +
       (лист
         ? '<div class="фон-выбор">' +
-            '<button class="крош' + (резать ? " выбран" : "") + '" data-резать="да">вырезать фон</button>' +
-            '<button class="крош' + (резать ? "" : " выбран") + '" data-резать="нет">оставить как есть</button>' +
+            '<button class="крош тусклая' + (резать ? " выбран" : "") + '" data-резать="да">вырезать фон</button>' +
+            '<button class="крош тусклая' + (резать ? "" : " выбран") + '" data-резать="нет">оставить как есть</button>' +
             (резать
-              ? '<button class="крош примерить">'
+              ? '<button class="крош тусклая примерить">'
                 + (готовыйВырез ? "Вырезать заново" : "Посмотреть вырез")
                 + "</button>"
               : "") +
