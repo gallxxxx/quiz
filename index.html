@@ -148,11 +148,21 @@ window.__ВЕРСИЯ = "2026-10-01-5";
      красил их белым и чёрным — то есть показывал то, чего в ролике нет.
      Лист не чисто белый: #FFFFFF выглядит экраном, а не бумагой. */
   .кадр.лист{background:#FFFFFF}
-  .кадр.лист .пол{justify-content:center}
+  /* Зона картинки — та же, что в ролике (MEDIA_EDGE_CUT / MEDIA_H_CUT в
+     ThisOrThatVideo.tsx): 960×635 из 1080×1920, в 45 px от края кадра,
+     подпись в 18 px под ней. Раньше тут стояла коробка 64% ширины 4:3 по
+     центру половины — в предпросмотре картинки выходили вдвое мельче,
+     чем в ролике. Проценты у padding/margin считаются от ширины кадра. */
+  .кадр.лист .пол{justify-content:flex-start}
+  .кадр.лист .пол.верх{padding-top:4.17%}
+  .кадр.лист .пол.низ{padding-bottom:4.17%}
   /* Вырезанная картинка вписывается целиком: у неё нет прямоугольника,
      обрезать по краям нечего. */
-  .кадр.лист .снимок{width:64%;aspect-ratio:4/3;background-color:transparent;
-       background-size:contain;background-position:center;margin:3px 0}
+  .кадр.лист .снимок{width:88.9%;height:66.15%;aspect-ratio:auto;flex:0 0 auto;
+       background-color:transparent;background-size:contain;
+       background-position:center;margin:0}
+  .кадр.лист .пол.верх .снимок{margin-bottom:1.67%}
+  .кадр.лист .пол.низ .снимок{margin-top:1.67%}
   .кадр.лист .подпись{color:#141414;text-shadow:none;font-size:8px;
        letter-spacing:.2px;text-transform:uppercase}
   /* border и transform гасим нарочно: кружок «OR» делит имя с кружком
@@ -2071,15 +2081,26 @@ $("add").addEventListener("click", () => {
 // (Syntx / Midjourney / Flux), генерит и добавляет картинку кнопкой
 // «своё фото». Нейросеть на сайте намеренно не зовём: у бесплатных
 // генераторов либо водяной знак, либо платно, а промпт — бесплатно.
-const промптКартинки = (label) =>
-  "professional advertising product photography of " + label +
-  ", hero subject centered, on a pure flat solid white background #FFFFFF, " +
-  "seamless plain white backdrop, no gray, no off-white, no gradient, no shadows, " +
-  "no reflections, no floor, background evenly lit and completely white; " +
-  "if the subject is food, make it appetizing and mouth-watering — add a small glass bowl " +
-  "of ketchup or dipping sauce beside it and light fresh garnish, styled like a fast-food " +
-  "advertisement; glossy vivid vibrant colors, bright even lighting, ultra sharp focus, " +
-  "crisp, high detail, high resolution, commercial product shot, no text, no watermark";
+// Запасной шаблон — когда нейросеть не ответила. Чтобы промпты не выходили
+// под копирку, подача у каждого своя (по номеру пункта): горка, ряд, стопка,
+// блюдо, корзинка… Соус тут не подставляем вовсе: шаблон не знает, к чему
+// он уместен, а кетчуп рядом с мороженым — хуже, чем ничего.
+const ПОДАЧИ = [
+  "a big generous pile of",
+  "a row of several",
+  "a tall stack of",
+  "a large platter full of",
+  "an overflowing basket of",
+  "an abundant assortment of",
+];
+const промптКартинки = (label, i = 0) =>
+  "professional advertising food photography of " + ПОДАЧИ[i % ПОДАЧИ.length] + " " + label +
+  " (if it is not food — a single bold eye-catching shot of it), mouth-watering, glossy, " +
+  "vivid colors, rich textures. The whole composition is fully visible inside the frame, " +
+  "nothing cut off or cropped at any edge; it is large and fills about 85% of the image, " +
+  "with a small even white margin on all sides. Pure flat solid white background #FFFFFF, " +
+  "no gradient, no shadows, no floor, no logos, no text, no watermark. " +
+  "Ultra sharp focus, studio lighting, high detail, 8k";
 
 const копироватьТекст = async (текст, кнопка) => {
   const ок = () => { кнопка.textContent = "Скопировано ✓"; setTimeout(() => (кнопка.textContent = "Копировать"), 1500); };
@@ -2115,15 +2136,16 @@ const промптыОтНейросети = async (пункты) => {
   const МЕТА =
     "Ты помогаешь делать картинки для видео-викторины «это или то».\n" +
     "Ниже список предметов/блюд. Для КАЖДОГО придумай короткий промпт на\n" +
-    "АНГЛИЙСКОМ для генерации ОДНОЙ картинки этого предмета крупным планом.\n\n" +
+    "АНГЛИЙСКОМ для генерации ОДНОЙ картинки (40-80 слов).\n\n" +
     "Правила для каждого промпта:\n" +
     "- фон строго ЧИСТО БЕЛЫЙ, и ОБЯЗАТЕЛЬНО напиши цвет фона кодом «#FFFFFF» прямо в тексте промпта; без теней, градиентов, пола;\n" +
-    "- один герой по центру, аппетитно/эффектно, резко, high detail, реклама; no text, no watermark;\n" +
-    "- ПРОДУМАЙ, что уместно ИМЕННО этому предмету:\n" +
-    "  * еда, которую едят с соусом (fries, nuggets, wings, onion rings, mozzarella sticks) — добавь подходящий соус/дип рядом (fries -> ketchup, nuggets -> dipping sauce);\n" +
-    "  * самодостаточная еда (burger, shawarma, pizza, hot dog, sandwich, taco, sushi) — БЕЗ лишних соусов и зелени, просто сам предмет, красиво;\n" +
-    "  * НЕ добавляй петрушку, зелень, случайные гарниры не к месту;\n" +
-    "  * не-еда (машина, город, животное, гаджет, здание) — обычное рекламное фото предмета, без всякой еды и соусов.\n\n" +
+    "- ВЕСЬ предмет/композиция ЦЕЛИКОМ в кадре: ничего не обрезано краями (бокал целиком с трубочкой, клешни и хвост лобстера, вся тарелка); при этом КРУПНО — занимает около 85% кадра, по краям лишь тонкое белое поле. Пиши это явно: «fully visible inside the frame, nothing cut off or cropped at any edge, fills about 85% of the image, small even white margin on all sides»;\n" +
+    "- ОЧЕНЬ аппетитно: сочные текстуры, тянущийся сыр, тающий шоколад, хрустящая корочка, капли, глазурь; рекламная съёмка, резко, high detail; no text, no logos, no watermark;\n" +
+    "- ИЗОБИЛИЕ: чаще всего в кадре МНОГО штук сразу, а не одна — ряд из 4-5 разных милкшейков, гора наггетсов, корзинка чуррос, горка пончиков с разной глазурью, стопка брауни, большое блюдо/противень, открытая коробка с едой. Одиночный предмет — только если так эффектнее (один огромный бургер, рожок с тремя шариками);\n" +
+    "- НЕ ОДНОТИПНО: промпты в списке должны отличаться друг от друга подачей (ряд, горка, стопка, блюдо, корзинка, коробка, ложка/вилка с тянущимся сыром, разлом пополам), набором вкусов и деталей. Не начинай все промпты одинаково и не копируй одни и те же фразы-описания;\n" +
+    "- СОУСЫ НЕ ВЕЗДЕ: соус/дип добавляй только там, где его правда едят (наггетсы — 2-3 разных соуса в чашечках, картошка, крылышки, чуррос — шоколадный дип, морепродукты — растопленное масло и лимон). Десерты, напитки, бургеры, пицца, выпечка — БЕЗ кетчупа и соусов. Не добавляй случайную зелень;\n" +
+    "- бренд/ресторан (McDonald's, KFC, Dunkin, Arby's, Red Lobster…) — покажи их узнаваемую фирменную еду набором (сэндвичи, картошка, пончики с напитками, блюдо морепродуктов), но без логотипов и надписей;\n" +
+    "- не-еда (машина, город, животное, гаджет, фраза-действие) — одна яркая эффектная картинка предмета или простая понятная иллюстрация/3D-иконка смысла фразы, без еды и соусов.\n\n" +
     "Верни ТОЛЬКО JSON: {\"промпты\":[{\"подпись\":\"...\",\"промпт\":\"...\"}]}. Подписи — ДОСЛОВНО из списка.\n\n" +
     "Список:\n" + пункты.map((p, i) => (i + 1) + ". " + p).join("\n");
 
@@ -2133,8 +2155,9 @@ const промптыОтНейросети = async (пункты) => {
     body: JSON.stringify({
       model,
       messages: [{ role: "user", content: МЕТА }],
-      temperature: 0.4,
-      max_tokens: 4096,
+      // Повыше, чтобы промпты не выходили под копирку.
+      temperature: 0.9,
+      max_tokens: 8192,
       response_format: { type: "json_object" },
     }),
   });
@@ -2184,12 +2207,12 @@ $("кнопка-промпты").addEventListener("click", безопасно("�
   инфо.className = "muted";
   инфо.style.margin = "8px 0";
   инфо.textContent = карта
-    ? "Промпты продуманы под каждое (бургеру — ничего лишнего, картошке — кетчуп и т.п.). Скопируй, вставь в свою нейросеть, сгенери на белом фоне и добавь кнопкой «своё фото»."
+    ? "Промпты продуманы под каждое: много штук в кадре, всё целиком, соусы только где уместно. Скопируй, вставь в свою нейросеть, сгенери на белом фоне и добавь кнопкой «своё фото»."
     : "Нейросеть не ответила (лимит?) — дала простые промпты по шаблону. Можешь нажать ещё раз через минуту. Скопируй, вставь в свою нейросеть, добавь кнопкой «своё фото».";
   выход.appendChild(инфо);
 
-  пункты.forEach((label) => {
-    const текст = (карта && карта.get(label.toLowerCase())) || промптКартинки(label);
+  пункты.forEach((label, i) => {
+    const текст = (карта && карта.get(label.toLowerCase())) || промптКартинки(label, i);
     const card = document.createElement("div");
     card.className = "card";
 
