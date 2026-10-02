@@ -27,21 +27,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Пока секретов нет — заливка тихо пропускается, а не падает красным
+      # при каждой выкладке. Впишут секреты — заработает сама.
       - name: Проверить, что доступ вписан
+        id: доступ
         env:
           H: ${{ secrets.BEGET_FTP_HOST }}
           U: ${{ secrets.BEGET_FTP_USER }}
           P: ${{ secrets.BEGET_FTP_PASSWORD }}
           D: ${{ secrets.BEGET_DIR }}
         run: |
-          for v in H U P D; do
-            if [ -z "${!v}" ]; then
-              echo "::error::Не вписаны секреты BEGET_FTP_HOST / BEGET_FTP_USER / BEGET_FTP_PASSWORD / BEGET_DIR"
-              exit 1
-            fi
-          done
+          if [ -n "$H" ] && [ -n "$U" ] && [ -n "$P" ] && [ -n "$D" ]; then
+            echo "есть=да" >> "$GITHUB_OUTPUT"
+          else
+            echo "Секреты Beget не вписаны — заливку пропускаю."
+            echo "есть=нет" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Залить по FTP
+        if: steps.доступ.outputs.есть == 'да'
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.BEGET_FTP_HOST }}
