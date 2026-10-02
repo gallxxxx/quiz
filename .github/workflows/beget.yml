@@ -1,0 +1,56 @@
+# Заливает сайт на Beget (otdai-ii.ru) при каждой выкладке в ветку site.
+#
+# Зачем: домен otdai-ii.ru смотрит не на GitHub Pages, а на хостинг Beget.
+# Раньше страницу туда клали руками, и правки «не доезжали» — на GitHub
+# версия новая, а на домене старая. Теперь копия обновляется сама.
+#
+# Один раз впиши в GitHub → Settings → Secrets and variables → Actions:
+#   BEGET_FTP_HOST      — FTP-сервер из панели Beget (раздел «FTP»)
+#   BEGET_FTP_USER      — логин FTP-аккаунта
+#   BEGET_FTP_PASSWORD  — пароль FTP-аккаунта
+#   BEGET_DIR           — папка сайта на сервере, с «/» в конце,
+#                         обычно /otdai-ii.ru/public_html/
+name: Залить на Beget
+
+on:
+  push:
+    branches: [site]
+  workflow_dispatch:
+
+concurrency:
+  group: beget
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Проверить, что доступ вписан
+        env:
+          H: ${{ secrets.BEGET_FTP_HOST }}
+          U: ${{ secrets.BEGET_FTP_USER }}
+          P: ${{ secrets.BEGET_FTP_PASSWORD }}
+          D: ${{ secrets.BEGET_DIR }}
+        run: |
+          for v in H U P D; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Не вписаны секреты BEGET_FTP_HOST / BEGET_FTP_USER / BEGET_FTP_PASSWORD / BEGET_DIR"
+              exit 1
+            fi
+          done
+
+      - name: Залить по FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.BEGET_FTP_HOST }}
+          username: ${{ secrets.BEGET_FTP_USER }}
+          password: ${{ secrets.BEGET_FTP_PASSWORD }}
+          server-dir: ${{ secrets.BEGET_DIR }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .github/**
+            проверки/**
+            README.md
