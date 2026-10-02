@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-02-1";
+window.__ВЕРСИЯ = "2026-10-02-2";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -124,8 +124,15 @@ window.__ВЕРСИЯ = "2026-10-02-1";
   .кадрбокс .кадр{cursor:zoom-in}
   .кадр-полный{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;
        display:flex;align-items:center;justify-content:center;cursor:zoom-out}
-  .кадр-полный .закрыть{position:absolute;top:12px;right:16px;color:#fff;
-       font-size:30px;line-height:1;opacity:.85;background:none;border:0;padding:6px}
+  .кадр-полный .закрыть{position:absolute;top:calc(14px + env(safe-area-inset-top));
+       right:12px;color:#fff;font-size:28px;line-height:1;background:rgba(255,255,255,.18);
+       border:0;width:52px;height:52px;border-radius:50%;z-index:2;
+       display:flex;align-items:center;justify-content:center}
+  .кадр-полный .закрыть-низ{position:absolute;left:50%;transform:translateX(-50%);
+       bottom:calc(16px + env(safe-area-inset-bottom));z-index:2;
+       background:#fff;color:#141414;font-weight:800;font-size:17px;border:0;
+       border-radius:999px;padding:14px 44px}
+  .кадр-полный .стрелка{z-index:2}
   .кадр-полный-центр{display:flex;align-items:center;justify-content:center}
   .кадр-полный .стрелка{position:absolute;top:50%;transform:translateY(-50%);
        width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.16);
@@ -134,7 +141,7 @@ window.__ВЕРСИЯ = "2026-10-02-1";
   .кадр-полный .стрелка.влево{left:10px}
   .кадр-полный .стрелка.вправо{right:10px}
   .кадр-полный .стрелка:disabled{opacity:.2}
-  .кадр-полный-счёт{position:absolute;left:0;right:0;bottom:20px;text-align:center;
+  .кадр-полный-счёт{position:absolute;left:0;right:0;top:calc(30px + env(safe-area-inset-top));text-align:center;
        color:#fff;font-weight:700;opacity:.85;font-size:15px}
   .кадр-полный-статус{position:absolute;left:0;right:0;top:14px;text-align:center;
        color:#fff;font-weight:600;opacity:.9;font-size:14px;pointer-events:none;padding:0 50px}
@@ -1504,7 +1511,7 @@ const кадрЭтоИлиТо = (холст, номер = 0) => {
     // от прежнего авто-выреза как раз и давали чёрный прямоугольник —
     // показываем само фото, они больше ни на что не влияют.
     const сторона = i === 0 ? "top" : "bottom";
-    const готовый = лист && !своё && !(раунд.безВыреза && раунд.безВыреза[сторона])
+    const готовый = лист && !своё && режем(раунд, сторона)
       && раунд.вырезано && раунд.вырезано[сторона];
     if (готовый) {
       вырезСнимок(готовый)
@@ -2069,9 +2076,15 @@ $("file").addEventListener("change", async () => {
 
 $("add").addEventListener("click", () => {
   state.rounds.push({ top: "", bottom: "", pct: 50, photos: {}, picks: {} });
+  // Страница НЕ уезжает в самый низ: раньше тут был scrollTo в конец
+  // документа, и после «+ ещё вопрос» человек оказывался под всеми
+  // настройками. Новый вопрос встаёт прямо над кнопкой — она же и
+  // остаётся на своём месте под пальцем.
+  const кнопка = $("add");
+  const былоY = кнопка.getBoundingClientRect().top;
   сохранить();
   рисовать();
-  window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+  window.scrollBy(0, кнопка.getBoundingClientRect().top - былоY);
 });
 
 // ——— Промпты для картинок ———
@@ -2466,12 +2479,33 @@ const открытьКадрПолный = (кадр, листаемый) => {
   const оверлей = document.createElement("div");
   оверлей.className = "кадр-полный";
 
-  // Кадр по центру. Тап по самому кадру не закрывает — закрывает тёмный
-  // фон, крестик или свайп.
+  // ЗАКРЫВАЕТСЯ ЛЮБЫМ ТАПОМ. Раньше тап по самому кадру гасился, а кадр
+  // растянут почти на весь экран — тёмного поля оставалась полоска, а
+  // крестик сидел под самой шторкой телефона. Окно «не закрывалось».
+  // Теперь: тап куда угодно (кроме стрелок), большая кнопка «Закрыть»
+  // внизу, крестик ниже шторки, жест «назад» в браузере и Esc.
   const центр = document.createElement("div");
   центр.className = "кадр-полный-центр";
-  центр.addEventListener("click", (e) => e.stopPropagation());
   оверлей.appendChild(центр);
+
+  let закрыто = false;
+  const закрыть = (изИстории) => {
+    if (закрыто) return;
+    закрыто = true;
+    оверлей.remove();
+    document.removeEventListener("keydown", поEsc);
+    window.removeEventListener("popstate", поНазад);
+    // Закрыли не «назад» — убираем свою запись из истории, чтобы
+    // следующее «назад» не ушло в пустоту.
+    if (!изИстории && history.state && history.state.кадрПолный) history.back();
+  };
+  const поEsc = (e) => { if (e.key === "Escape") закрыть(false); };
+  const поНазад = () => закрыть(true);
+  document.addEventListener("keydown", поEsc);
+  try {
+    history.pushState({ кадрПолный: true }, "");
+    window.addEventListener("popstate", поНазад);
+  } catch (e) { /* без истории — закроют тапом */ }
 
   const показать = () => {
     центр.innerHTML = "";
@@ -2481,7 +2515,8 @@ const открытьКадрПолный = (кадр, листаемый) => {
     клон.style.cursor = "default";
     const бw = src.offsetWidth || 132;
     const бh = src.offsetHeight || (бw * 16 / 9);
-    const k = Math.min((window.innerHeight * 0.82) / бh, (window.innerWidth * 0.9) / бw);
+    // По высоте оставляем место под счёт сверху и «Закрыть» снизу.
+    const k = Math.min((window.innerHeight * 0.74) / бh, (window.innerWidth * 0.86) / бw);
     клон.style.transform = "scale(" + (k > 0 ? k : 1) + ")";
     клон.style.transformOrigin = "center center";
     центр.appendChild(клон);
@@ -2491,8 +2526,13 @@ const открытьКадрПолный = (кадр, листаемый) => {
   const крест = document.createElement("button");
   крест.type = "button"; крест.className = "закрыть"; крест.textContent = "✕";
   крест.setAttribute("aria-label", "Закрыть");
-  крест.addEventListener("click", (e) => { e.stopPropagation(); оверлей.remove(); });
+  крест.addEventListener("click", (e) => { e.stopPropagation(); закрыть(false); });
   оверлей.appendChild(крест);
+
+  const внизу = document.createElement("button");
+  внизу.type = "button"; внизу.className = "закрыть-низ"; внизу.textContent = "Закрыть";
+  внизу.addEventListener("click", (e) => { e.stopPropagation(); закрыть(false); });
+  оверлей.appendChild(внизу);
 
   if (листаемый) {
     const счёт = document.createElement("div");
@@ -2537,7 +2577,7 @@ const открытьКадрПолный = (кадр, листаемый) => {
     }, { passive: true });
   }
 
-  оверлей.addEventListener("click", () => оверлей.remove());
+  оверлей.addEventListener("click", () => закрыть(false));
   document.body.appendChild(оверлей);
 };
 
@@ -2903,6 +2943,13 @@ const забытьВырез = (r, side) => {
   if (было.ключ) фотоУбрать(было.ключ).catch(() => {});
 };
 
+// Резать ли фон у этой картинки. По умолчанию НЕ режем — «оставить как
+// есть»: Вика попросила, большинство картинок и так сгенерировано на
+// чистом белом, и резать их незачем. Вырезать — только если выбрали явно.
+// (Раньше было наоборот и хранилось как «безВыреза»; то поле больше не
+// читаем — старое «по умолчанию режем» тихо стало «не режем».)
+const режем = (r, side) => !!(r && r.резатьФон && r.резатьФон[side]);
+
 const вырезСнимок = async (что) => {
   if (!что) return "";
   if (что.данные) return что.данные;
@@ -3051,11 +3098,9 @@ const рисоватьСлоты = () => {
           : "";
 
     // Вырезать фон или оставить как есть — решение своё у каждой
-    // картинки. По умолчанию режем: белый лист ради этого и затевался.
-    // Но не всё стоит резать — у вида вырезать нечего, да и просто
-    // бывает, что прямоугольник уместнее.
+    // картинки. По умолчанию — оставить как есть (см. «режем»).
     const лист = state.theme === "белое";
-    const резать = !(r.безВыреза && r.безВыреза[м.side]);
+    const резать = режем(r, м.side);
     const готовыйВырез = r.вырезано && r.вырезано[м.side];
 
     const состояние = своёВидео
@@ -3240,10 +3285,11 @@ const рисоватьСлоты = () => {
       for (const кн of el.querySelectorAll("[data-резать]")) {
         кн.addEventListener("click", () => {
           const надо = кн.dataset.резать === "да";
-          r.безВыреза = r.безВыреза || {};
-          if (надо) delete r.безВыреза[м.side];
+          r.резатьФон = r.резатьФон || {};
+          delete r.безВыреза;
+          if (надо) r.резатьФон[м.side] = true;
           else {
-            r.безВыреза[м.side] = true;
+            delete r.резатьФон[м.side];
             // Оставляем как есть — готовый вырез больше не нужен и
             // только занимал бы место в выпуске.
             забытьВырез(r, м.side);
@@ -3363,8 +3409,8 @@ const собратьФайл = async () => {
       картинки: { сверху: картинка("top"), снизу: картинка("bottom") },
       // «нет» — эту картинку резать не надо, она ляжет на лист как есть.
       вырез: {
-        сверху: r.безВыреза?.top ? "нет" : "да",
-        снизу: r.безВыреза?.bottom ? "нет" : "да",
+        сверху: режем(r, "top") ? "да" : "нет",
+        снизу: режем(r, "bottom") ? "да" : "нет",
       },
       вырезано: { сверху: await вырез("top"), снизу: await вырез("bottom") },
     });
