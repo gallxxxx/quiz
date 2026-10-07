@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-8";
+window.__ВЕРСИЯ = "2026-10-07-9";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -161,14 +161,14 @@ window.__ВЕРСИЯ = "2026-10-07-8";
      центру половины — в предпросмотре картинки выходили вдвое мельче,
      чем в ролике. Проценты у padding/margin считаются от ширины кадра. */
   .кадр.лист .пол{justify-content:flex-start}
-  /* Зону расширили до ≈90% свободного места (1040×655 в 25 px от края,
-     MEDIA_W_CUT/MEDIA_H_CUT в ролике). Картинка вписывается целиком —
+  /* Зона как на образце Вики: 950×580 в 105 px от края кадра
+     (MEDIA_W_CUT/MEDIA_H_CUT в ролике). Картинка вписывается целиком —
      никогда не обрезается, только уменьшается. */
-  .кадр.лист .пол.верх{padding-top:2.31%}
-  .кадр.лист .пол.низ{padding-bottom:2.31%}
+  .кадр.лист .пол.верх{padding-top:9.72%}
+  .кадр.лист .пол.низ{padding-bottom:9.72%}
   /* Вырезанная картинка вписывается целиком: у неё нет прямоугольника,
      обрезать по краям нечего. */
-  .кадр.лист .снимок{width:96.3%;height:68.23%;aspect-ratio:auto;flex:0 0 auto;
+  .кадр.лист .снимок{width:87.96%;height:60.42%;aspect-ratio:auto;flex:0 0 auto;
        background-color:transparent;background-size:contain;
        background-position:center;margin:0}
   .кадр.лист .пол.верх .снимок{margin-bottom:1.67%}
@@ -2152,7 +2152,8 @@ const промптКартинки = (label, i = 0) => БАЙТ.test(label) ? п
   " (if it is not food — a single bold eye-catching shot of it), mouth-watering, glossy, " +
   "vivid colors, rich textures. The whole composition is fully visible inside the frame, " +
   "nothing cut off or cropped at any edge; it is large and fills about 85% of the image, " +
-  "with a small even white margin on all sides. Pure flat solid white background #FFFFFF, " +
+  "with a small even white margin on all sides, wide horizontal 16:10 landscape composition. "
+  + "Pure flat solid white background #FFFFFF, " +
   "no gradient, no shadows, no floor, no watermark. " +
   "Ultra sharp focus, studio lighting, high detail, 8k";
 
@@ -2244,6 +2245,7 @@ const промптыОтНейросети = async (пункты, пишем = (
     "АНГЛИЙСКОМ для генерации ОДНОЙ картинки (40-80 слов).\n\n" +
     "Правила для каждого промпта:\n" +
     "- фон строго ЧИСТО БЕЛЫЙ, и ОБЯЗАТЕЛЬНО напиши цвет фона кодом «#FFFFFF» прямо в тексте промпта; без теней, градиентов, пола;\n" +
+    "- кадр ГОРИЗОНТАЛЬНЫЙ, широкий: формат 16:10 (в ролике картинка лежит широким прямоугольником). Композиция вытянута по ширине — ряд, горка, блюдо, разложенные в стороны. Пиши явно: «wide horizontal 16:10 landscape composition»;\n" +
     "- ВЕСЬ предмет/композиция ЦЕЛИКОМ в кадре: ничего не обрезано краями (бокал целиком с трубочкой, клешни и хвост лобстера, вся тарелка); при этом КРУПНО — занимает около 85% кадра, по краям лишь тонкое белое поле. Пиши это явно: «fully visible inside the frame, nothing cut off or cropped at any edge, fills about 85% of the image, small even white margin on all sides»;\n" +
     "- ОЧЕНЬ аппетитно: сочные текстуры, тянущийся сыр, тающий шоколад, хрустящая корочка, капли, глазурь; рекламная съёмка, резко, high detail; no watermark;\n" +
     "- ИЗОБИЛИЕ: чаще всего в кадре МНОГО штук сразу, а не одна — ряд из 4-5 разных милкшейков, гора наггетсов, корзинка чуррос, горка пончиков с разной глазурью, стопка брауни, большое блюдо/противень, открытая коробка с едой. Одиночный предмет — только если так эффектнее (один огромный бургер, рожок с тремя шариками);\n" +
