@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-13";
+window.__ВЕРСИЯ = "2026-10-07-14";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -132,8 +132,7 @@ window.__ВЕРСИЯ = "2026-10-07-13";
   /* «Конфетный»: горошек и чёрные таблички. */
   .кадр.конфетный .пол{background-image:radial-gradient(rgba(255,255,255,.25) 1.2px,transparent 1.5px)!important;
        background-size:10px 10px!important}
-  .кадр.конфетный .подпись{background:#111;color:#fff;border-radius:999px;padding:1px 6px 2px;
-       text-shadow:none}
+  /* Подписи в «конфетном» — обычные, как в остальных оформлениях (Вика). */
   .кадр .подпись{color:#fff;font-weight:800;font-size:7.5px;text-align:center;
        line-height:1.05;text-shadow:0 1px 2px rgba(0,0,0,.45);padding:0 4px;max-width:92%}
   .кадр .полоса{position:absolute;left:0;right:0;top:calc(50% - 4px);height:8px;
@@ -515,7 +514,7 @@ window.__ВЕРСИЯ = "2026-10-07-13";
         <option value="терракота">терракота и бирюза</option>
         <option value="красный-синий">красный и синий</option>
         <option value="розовый-голубой">розовый и голубой</option>
-        <option value="конфетный">конфетный: горошек и чёрные таблички</option>
+        <option value="конфетный">конфетный: яркий фон в горошек</option>
         <option value="белое">белый лист, картинки без фона</option>
       </select>
       <div class="гамма" id="гамма-превью"><i></i><i></i></div>
