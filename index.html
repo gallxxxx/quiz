@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-22";
+window.__ВЕРСИЯ = "2026-10-07-23";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -2545,9 +2545,14 @@ const имяНейросети = (id) => {
 };
 // Запрос с честным сроком: бесплатная модель в очереди может молчать
 // минутами — лучше перейти к следующей.
-const кНейросети = async (нейро, тело, срок = 90000) => {
+const кНейросети = async (нейро, тело, срок = 90000, отбой = null) => {
   const сторож = new AbortController();
   const будильник = setTimeout(() => сторож.abort(), срок);
+  // «Отбой» снаружи: в гонке нейросетей победила другая — эту не ждём.
+  if (отбой) {
+    if (отбой.aborted) сторож.abort();
+    else отбой.addEventListener("abort", () => сторож.abort(), { once: true });
+  }
   try {
     return await fetch(нейро.адрес + "chat/completions", {
       method: "POST",
@@ -2591,40 +2596,56 @@ const промптыОтНейросети = async (пункты, пишем = (
     "Верни ТОЛЬКО JSON: {\"промпты\":[{\"подпись\":\"...\",\"промпт\":\"...\"}]}. Подписи — ДОСЛОВНО из списка.\n\n" +
     "Список:\n" + пункты.map((p, i) => (i + 1) + ". " + p.label + " [" + (p.вид === "16:9" ? "3:2" : "НА БЕЛОМ") + "]").join("\n");
 
+  // ГОНКА: спрашиваем сразу ТРИ нейросети и берём первый годный ответ,
+  // остальным даём отбой. Раньше спрашивали по одной и ждали каждую до
+  // полутора минут — в плохой день промпты писались по 7–9 минут.
+  const одна = async (model, отбой) => {
+    const r = await кНейросети(нейро, {
+      model,
+      messages: [{ role: "user", content: МЕТА }],
+      // Повыше, чтобы промпты не выходили под копирку.
+      temperature: 0.9,
+      max_tokens: 8192,
+      // «Думающим» моделям — думать коротко: иначе они минутами размышляют.
+      reasoning: { effort: "low", exclude: true },
+      // Строгий JSON умеют не все бесплатные — у них разбираем текст.
+      ...(/:free$/i.test(model) ? {} : { response_format: { type: "json_object" } }),
+    }, 75000, отбой);
+    if (!r.ok) throw new Error("нейросеть " + r.status);
+    const j = await r.json();
+    const м = j.choices?.[0]?.message || {};
+    const txt = м.content || (/промпт|prompt/i.test(м.reasoning || "") ? м.reasoning : "");
+    if (!txt) throw new Error("пустой ответ");
+    const data = вытащитьJSONброузер(txt);
+    const карта = new Map();
+    (data.промпты || data.prompts || []).forEach((p) => {
+      const k = String(p.подпись || p.label || "").trim().toLowerCase();
+      let v = String(p.промпт || p.prompt || "").trim();
+      // Гарантируем явный код белого фона #FFFFFF в каждом промпте — даже
+      // если нейросеть написала просто «white background».
+      if (v && !/f{6}/i.test(v)) v += ", on a pure white background #FFFFFF";
+      if (k && v) карта.set(k, v);
+    });
+    if (!карта.size) throw new Error("нет промптов");
+    // OpenRouter говорит, какая модель ответила на самом деле.
+    return { карта, модель: j.model && /:free$/i.test(model) && !/:free$/i.test(j.model)
+      ? j.model + ":free" : (j.model || model) };
+  };
+
   let последняя = "не ответила";
-  for (const [номер, model] of кандидаты.entries()) {
-    пишем("Нейросеть " + имяНейросети(model) + " придумывает промпты… ("
-      + (номер + 1) + " из " + кандидаты.length + ")");
+  const ЗАЕЗД = 3;
+  for (let i = 0; i < кандидаты.length; i += ЗАЕЗД) {
+    const группа = кандидаты.slice(i, i + ЗАЕЗД);
+    пишем("Пишут промпты наперегонки: " + группа.map((m) => имяНейросети(m).replace(/ \(.*\)$/, "")
+      .replace(/^[^/]*\//, "")).join(", ") + " — беру того, кто первый");
+    const отбой = new AbortController();
     try {
-      const r = await кНейросети(нейро, {
-        model,
-        messages: [{ role: "user", content: МЕТА }],
-        // Повыше, чтобы промпты не выходили под копирку.
-        temperature: 0.9,
-        max_tokens: 8192,
-        // Строгий JSON умеют не все бесплатные — у них разбираем текст.
-        ...(/:free$/i.test(model) ? {} : { response_format: { type: "json_object" } }),
-      });
-      if (!r.ok) { последняя = "нейросеть " + r.status; continue; }
-      const j = await r.json();
-      const txt = j.choices?.[0]?.message?.content;
-      if (!txt) { последняя = "пустой ответ"; continue; }
-      const data = вытащитьJSONброузер(txt);
-      const карта = new Map();
-      (data.промпты || data.prompts || []).forEach((p) => {
-        const k = String(p.подпись || p.label || "").trim().toLowerCase();
-        let v = String(p.промпт || p.prompt || "").trim();
-        // Гарантируем явный код белого фона #FFFFFF в каждом промпте — даже
-        // если нейросеть написала просто «white background».
-        if (v && !/f{6}/i.test(v)) v += ", on a pure white background #FFFFFF";
-        if (k && v) карта.set(k, v);
-      });
-      if (!карта.size) { последняя = "нет промптов"; continue; }
-      // OpenRouter говорит, какая модель ответила на самом деле.
-      return { карта, модель: j.model && /:free$/i.test(model) && !/:free$/i.test(j.model)
-        ? j.model + ":free" : (j.model || model) };
+      const итог = await Promise.any(группа.map((m) => одна(m, отбой.signal)));
+      отбой.abort();
+      return итог;
     } catch (e) {
-      последняя = String((e && e.message) || e);
+      const ошибки = (e && e.errors) || [e];
+      последняя = String((ошибки[ошибки.length - 1] && ошибки[ошибки.length - 1].message) || "не ответила");
     }
   }
   throw new Error(последняя);
