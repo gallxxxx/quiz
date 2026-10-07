@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-18";
+window.__ВЕРСИЯ = "2026-10-07-19";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -2497,7 +2497,9 @@ const копироватьТекст = async (текст, кнопка) => {
 // только на случай, когда список бесплатных не получить вовсе.
 const ВКУС_НЕЙРОСЕТЕЙ = [/nemotron.*ultra/i, /qwen/i, /deepseek/i, /llama/i,
   /gemma/i, /mistral/i, /nemotron/i];
-const НЕ_ДЛЯ_НАС = /code|coder|laguna|embed|tts|audio|imagen|image-gen|guard|:batch/i;
+// «content-safety», «guard», «moderation» — это сторожа, а не собеседники:
+// они отвечают «безопасно / нет» и JSON с парами не напишут.
+const НЕ_ДЛЯ_НАС = /code|coder|laguna|embed|tts|audio|imagen|image-gen|guard|safety|moderat|:batch/i;
 const ЗАПАСНАЯ_НЕЙРОСЕТЬ = "google/gemini-2.5-flash";
 
 const списокНейросетей = async (нейро) => {
@@ -2836,7 +2838,10 @@ const разборНейросетью = async (листDataUrl, статус) =
       { type: "image_url", image_url: { url: листDataUrl } },
     ] }],
     temperature: 0,
-    max_tokens: 4096,
+    // «Думающие» модели (reasoning) тратят лимит на размышления и
+    // возвращали пустой ответ — даём запас и просим думать коротко.
+    max_tokens: 8192,
+    reasoning: { effort: "low", exclude: true },
     ...(/:free$/i.test(model) ? {} : { response_format: { type: "json_object" } }),
   });
 
@@ -2845,28 +2850,35 @@ const разборНейросетью = async (листDataUrl, статус) =
   // Что ответила КАЖДАЯ нейросеть — чтобы по экрану было видно причину.
   const отказы = [];
 
-  // Каждой — одна попытка и 30 секунд: молчит — значит, в очереди, и
-  // лучше сразу к следующей, чем ждать по полторы минуты на каждую.
+  // Каждой — 40 секунд: молчит — значит, в очереди, и лучше к следующей,
+  // чем ждать по полторы минуты. «Занята (429)» у бесплатных Google
+  // обычно проходит за секунды — таким ещё одна попытка через 6 секунд.
   for (const [номер, model] of кандидаты.entries()) {
-    for (let попытка = 0; попытка < 1; попытка++) {
+    for (let попытка = 0; попытка < 2; попытка++) {
       try {
         if (статус) статус("Читаю кадры нейросетью " + имяНейросети(model)
           + " (" + (номер + 1) + " из " + кандидаты.length + ")…");
-        const r = await кНейросети(нейро, JSON.parse(тело(model)), 30000);
+        const r = await кНейросети(нейро, JSON.parse(тело(model)), 40000);
         if (!r.ok) {
           const t = await r.text().catch(() => "");
           последняя = r.status + " " + t.slice(0, 160);
           отказы.push(имяНейросети(model).replace(/ \(.*\)$/, "") + ": " + понятныйОтказ(последняя));
           // Модель не годится (не берёт картинки / нет такой) — к следующей.
           if (r.status === 404 || /no endpoints|image input|not a valid|not found/i.test(последняя)) break;
-          // Лимит у бесплатной — сразу к следующей; у платной повторим.
-          if (r.status === 429 && /:free$/i.test(model)) break;
-          if (r.status === 429 || r.status >= 500) { await пауза(3000); continue; }
+          // Дневной лимит — ждать бесполезно; «занята» — подождём и повторим.
+          if (/per-day/i.test(последняя)) break;
+          if (попытка === 0 && (r.status === 429 || r.status >= 500)) {
+            if (статус) статус("Нейросеть " + имяНейросети(model) + " занята — жду 6 секунд и пробую ещё раз…");
+            await пауза(6000);
+            continue;
+          }
           break;
         }
         const j = await r.json();
-        const txt = j.choices?.[0]?.message?.content;
-        if (!txt) { последняя = "пустой ответ"; отказы.push(model + ": пустой ответ"); continue; }
+        const м = j.choices?.[0]?.message || {};
+        // Думающая модель иногда кладёт ответ в «размышления», а не в текст.
+        const txt = м.content || (/\{[\s\S]*раунды/.test(м.reasoning || "") ? м.reasoning : "");
+        if (!txt) { последняя = "пустой ответ"; отказы.push(model.replace(/:free$/, "") + ": пустой ответ"); break; }
         let data = null;
         try { data = вытащитьJSONброузер(txt); } catch (e) { /* ниже */ }
         if (data && Array.isArray(data.раунды) && data.раунды.length) {
@@ -2876,6 +2888,7 @@ const разборНейросетью = async (листDataUrl, статус) =
         }
         последняя = "кривой ответ";
         отказы.push(model.replace(/:free$/, "") + ": ответ не по форме");
+        break;
       } catch (e) {
         последняя = String((e && e.message) || e); // «Load failed» и т.п.
         отказы.push(model.replace(/:free$/, "") + ": " + понятныйОтказ(последняя));
@@ -2894,11 +2907,12 @@ const понятныйОтказ = (т) => {
   т = String(т || "");
   if (/free-models-per-day|per-day/i.test(т)) return "лимит бесплатных на сегодня исчерпан";
   if (/^429/.test(т)) return "занята, очередь (429)";
-  if (/^401|^403/.test(т)) return "нет доступа (" + т.slice(0, 3) + ") — проверь пароль сайта";
+  if (/пароль/i.test(т)) return "неверный пароль сайта — открой «🔑 Пароль»";
+  if (/^401|^403/.test(т)) return "модель отказала (" + т.slice(0, 3) + ") — не для бесплатных";
   if (/^402/.test(т)) return "просит оплату (402)";
   if (/^404|no endpoints|image input/i.test(т)) return "не принимает картинки";
   if (/^413|too large|payload/i.test(т)) return "кадры слишком большие (413)";
-  if (/abort/i.test(т)) return "не ответила за 30 секунд (очередь)";
+  if (/abort/i.test(т)) return "не ответила за 40 секунд (очередь)";
   if (/load failed|failed to fetch|network/i.test(т)) return "нет связи (" + т.slice(0, 40) + ")";
   return т.slice(0, 120);
 };
