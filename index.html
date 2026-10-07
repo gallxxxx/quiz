@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-9";
+window.__ВЕРСИЯ = "2026-10-07-10";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -435,6 +435,11 @@ window.__ВЕРСИЯ = "2026-10-07-9";
       <select id="introOn">
         <option value="да">да — сначала заставка, потом вопросы</option>
         <option value="нет">нет — сразу первый выбор</option>
+      </select>
+      <label>Обложка «This or that» в начале</label>
+      <select id="coverOn">
+        <option value="нет">нет</option>
+        <option value="да">да — сверху «This or that», снизу тема выпуска, картинки вылетают</option>
       </select>
       <label>Показывать концовку</label>
       <select id="outroOn">
@@ -1758,6 +1763,7 @@ const ПУСТО = () => ({
   shot: "крупный",
   voice: "en-US-GuyNeural",
   introOn: "да",
+  coverOn: "нет",
   // Концовку по умолчанию не показываем: она режет досмотр.
   outroOn: "нет",
   rounds: [
@@ -2057,7 +2063,7 @@ $("file").addEventListener("change", async () => {
   const ключ = куда.round + "-" + куда.side;
 
   try {
-    const r = state.rounds[куда.round];
+    const r = раунд(куда.round);
     r.photos = r.photos || {};
 
     if (file.type.startsWith("video/")) {
@@ -2147,7 +2153,18 @@ const промптБайта = (label) => {
     + "of the image. Pure flat solid white background #FFFFFF, no gradient, no shadows, no real faces";
 };
 
-const промптКартинки = (label, i = 0) => БАЙТ.test(label) ? промптБайта(label) :
+const промптОбложки = (label, i) => {
+  const тема = label.replace(/^ОБЛОЖКА\s+\S+\s+—\s+/, "").replace(/\bedition\b/gi, "").trim() || "food";
+  return "professional advertising food photography of a huge abundant spread of " + тема
+    + (i % 2 ? " favorites piled on a big wooden table" : " classics arranged on a large tray")
+    + ": many different items together, mouth-watering, glossy, rich textures. "
+    + "The whole composition is fully visible inside the frame, nothing cut off, fills about 85% "
+    + "of the image, wide horizontal 16:10 landscape composition. Pure flat solid white background "
+    + "#FFFFFF, no gradient, no shadows, no watermark. Ultra sharp focus, studio lighting, 8k";
+};
+
+const промптКартинки = (label, i = 0) => /^ОБЛОЖКА /.test(label) ? промптОбложки(label, i)
+  : БАЙТ.test(label) ? промптБайта(label) :
   "professional advertising food photography of " + ПОДАЧИ[i % ПОДАЧИ.length] + " " + label +
   " (if it is not food — a single bold eye-catching shot of it), mouth-watering, glossy, " +
   "vivid colors, rich textures. The whole composition is fully visible inside the frame, " +
@@ -2252,6 +2269,7 @@ const промптыОтНейросети = async (пункты, пишем = (
     "- НЕ ОДНОТИПНО: промпты в списке должны отличаться друг от друга подачей (ряд, горка, стопка, блюдо, корзинка, коробка, ложка/вилка с тянущимся сыром, разлом пополам), набором вкусов и деталей. Не начинай все промпты одинаково и не копируй одни и те же фразы-описания;\n" +
     "- СОУСЫ НЕ ВЕЗДЕ: соус/дип добавляй только там, где его правда едят (наггетсы — 2-3 разных соуса в чашечках, картошка, крылышки, чуррос — шоколадный дип, морепродукты — растопленное масло и лимон). Десерты, напитки, бургеры, пицца, выпечка — БЕЗ кетчупа и соусов. Не добавляй случайную зелень;\n" +
     "- ФРАЗЫ-БАЙТЫ про «человека»: «marry the 3rd person», «have kids with the 1st person», «tag the 2nd person» и т. п. Здесь «3rd person» — это ТРЕТИЙ человек в меню «Поделиться» в TikTok (ряд круглых аватарок друзей, кому отправить ролик). Картинка: крупный значок «Поделиться» (стрелка/самолётик) и меню отправки с рядом круглых аватарок-силуэтов, где нужная по счёту аватарка (3-я, 1-я…) выделена — подсвечена, обведена, с крупной цифрой; рядом символ действия (обручальные кольца для marry, детская коляска/малыш для kids, сердце для date/kiss). Без реальных лиц — силуэты или безликие аватарки. Чистая 3D-иллюстрация/иконка на белом #FFFFFF;\n" +
+    "- пункты «ОБЛОЖКА сверху/снизу — <тема>» — это обложка выпуска. Покажи ОГРОМНОЕ изобилие на тему выпуска, всё вместе на одном большом столе/подносе: например «Fast food Edition» — бургеры, пицца, картошка фри, наггетсы, крылышки, хот-доги, газировка; «Dessert Edition» — торты, пончики, мороженое, печенье. Очень сочно и аппетитно, как реклама. Верхняя и нижняя обложки должны быть РАЗНЫМИ по набору и подаче. Бренды и логотипы можно;\n" +
     "- противоположный вариант в таких парах («never have kids», «stay single», «reject the offer») — простая понятная 3D-иконка смысла (перечёркнутая коляска, одинокое сердце, красный крестик) на белом #FFFFFF;\n" +
     "- не-еда (машина, город, животное, гаджет, фраза-действие) — одна яркая эффектная картинка предмета или простая понятная иллюстрация/3D-иконка смысла фразы, без еды и соусов.\n\n" +
     "Верни ТОЛЬКО JSON: {\"промпты\":[{\"подпись\":\"...\",\"промпт\":\"...\"}]}. Подписи — ДОСЛОВНО из списка.\n\n" +
@@ -2300,6 +2318,11 @@ $("кнопка-промпты").addEventListener("click", безопасно("�
   выход.innerHTML = "";
 
   const пункты = [];
+  // Обложка: две картинки на тему выпуска, тоже через нейросеть.
+  if (обложкаВкл()) {
+    пункты.push("ОБЛОЖКА сверху — " + темаОбложки());
+    пункты.push("ОБЛОЖКА снизу — " + темаОбложки());
+  }
   (state.rounds || []).forEach((r) => {
     if ((r.top || "").trim()) пункты.push(r.top.trim());
     if ((r.bottom || "").trim()) пункты.push(r.bottom.trim());
@@ -2699,7 +2722,7 @@ const рисоватьГамму = () => {
   полосы[1].style.background = низ;
 };
 
-for (const id of ["hook", "edition", "mode", "shot", "voice", "introOn", "outroOn", "theme", "edge"]) {
+for (const id of ["hook", "edition", "mode", "shot", "voice", "introOn", "coverOn", "outroOn", "theme", "edge"]) {
   $(id).addEventListener("input", () => {
     state[id] = $(id).value;
     if (id === "theme") рисоватьГамму();
@@ -3136,8 +3159,33 @@ const вырезатьФон = async (адрес, сказать) => {
 // ——————————————————————————————————————————————————————————
 //  Экран проверки картинок
 // ——————————————————————————————————————————————————————————
+// ——— ОБЛОЖКА «THIS OR THAT» ———
+// Вика: «по желанию добавлялась обложка: сверху автоматически This or
+// that, снизу какой edition; картинки всплывают как в основном видео».
+// Для машины это первый вопрос с пометкой «обложка», а на странице —
+// отдельная пара картинок под номером -1, чтобы она не путалась
+// с вопросами (не двигалась стрелками, не имела процентов).
+const обложкаВкл = () => state.coverOn === "да";
+const темаОбложки = () => (state.edition || "").trim() || "Edition";
+const обложка = () => {
+  if (!state.обложка) state.обложка = { picks: {}, photos: {} };
+  const о = state.обложка;
+  о.picks = о.picks || {};
+  о.photos = о.photos || {};
+  о.top = "This or that";
+  о.bottom = темаОбложки();
+  return о;
+};
+const раунд = (i) => (i === -1 ? обложка() : state.rounds[i]);
+
 const места = () => {
   const список = [];
+  if (обложкаВкл()) {
+    // Ищем по теме: «Fast food Edition» → «fast food».
+    const запрос = темаОбложки().replace(/\bedition\b/gi, "").trim() || "food";
+    список.push({ round: -1, side: "top", подпись: "Обложка, сверху · This or that", запрос });
+    список.push({ round: -1, side: "bottom", подпись: "Обложка, снизу · " + темаОбложки(), запрос });
+  }
   state.rounds.forEach((r, i) => {
     for (const side of ["top", "bottom"]) {
       const подпись = (r[side] || "").trim();
@@ -3177,7 +3225,7 @@ const рисоватьСлоты = () => {
   }
 
   всё.forEach((м) => {
-    const r = state.rounds[м.round];
+    const r = раунд(м.round);
     const ключ = м.round + "-" + м.side;
     const своё = r.photos?.[м.side];
     const выбор = r.picks?.[м.side];
@@ -3288,7 +3336,7 @@ const рисоватьСлоты = () => {
         // Страница могла целиком состоять из уже показанного — шагаем дальше,
         // но не больше трёх раз, чтобы не молотить сток впустую.
         for (let шаг = 0; шаг < 3 && !новые.length; шаг += 1) {
-          const порция = await искать(м.подпись, state.mode, state.shot, страницы[ключ]);
+          const порция = await искать(м.запрос || м.подпись, state.mode, state.shot, страницы[ключ]);
           if (!порция.length) break;
           новые = порция.filter((в) => !виденное[ключ].has(в.ссылка));
           if (!новые.length) страницы[ключ] += 1;
@@ -3475,8 +3523,12 @@ const собратьФайл = async () => {
     .map((r, i) => ({ r, i }))
     .filter(({ r }) => (r.top || "").trim() && (r.bottom || "").trim());
 
+  // Обложка уезжает первым вопросом с пометкой — машина собирает её
+  // теми же путями, что и вопросы (картинки, своё фото, вырез, голос).
+  if (обложкаВкл()) годные.unshift({ r: обложка(), i: -1, обложка: true });
+
   const вопросы = [];
-  for (const { r, i } of годные) {
+  for (const { r, i, обложка: этоОбложка } of годные) {
     const картинка = (side) => {
       const в = r.picks?.[side];
       if (!в?.ссылка) return null;
@@ -3500,9 +3552,10 @@ const собратьФайл = async () => {
       return б ? { данные: б } : null;
     };
     вопросы.push({
+      ...(этоОбложка ? { обложка: true } : {}),
       сверху: r.top.trim(),
       снизу: r.bottom.trim(),
-      процент: r.pct,
+      процент: этоОбложка ? 50 : r.pct,
       фото: {
         сверху: своёДля(r, i, "top"),
         снизу: своёДля(r, i, "bottom"),
@@ -3524,7 +3577,8 @@ const собратьФайл = async () => {
     заставка: {
       фраза: state.hook.trim(),
       тема: state.edition.trim(),
-      выключена: state.introOn === "нет",
+      // С обложкой старая заставка не нужна: обложка и есть начало ролика.
+      выключена: state.introOn === "нет" || обложкаВкл(),
     },
     концовка: {
       заголовок: "HOW MANY MATCHED?",
@@ -4186,7 +4240,7 @@ const кнопкаУбратьСборку = (р, перерисовать) => {
 
 const отправить = async () => {
   const выпуск = await собратьФайл();
-  if (!выпуск.вопросы.length) {
+  if (!выпуск.вопросы.filter((q) => !q.обложка).length) {
     сказать("Ни одного вопроса не заполнено.");
     return;
   }
@@ -7199,6 +7253,7 @@ $("theme").value = state.theme || "терракота";
 $("edge").value = state.edge || "острый";
 рисоватьГамму();
 $("introOn").value = state.introOn || "да";
+$("coverOn").value = state.coverOn || "нет";
 $("outroOn").value = state.outroOn || "нет";
 $("ключ-pexels").value = доступ.pexels || "";
 $("токен").value = доступ.токен || "";
