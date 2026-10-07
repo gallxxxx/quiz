@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-7";
+window.__ВЕРСИЯ = "2026-10-07-8";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -2133,13 +2133,27 @@ const ПОДАЧИ = [
   "an overflowing basket of",
   "an abundant assortment of",
 ];
-const промптКартинки = (label, i = 0) =>
+// Фраза-байт «… the 3rd person» — это третий человек в меню «Поделиться»
+// TikTok. Шаблон рисует меню отправки с выделенной нужной аватаркой.
+const БАЙТ = /\b(\d+)(?:st|nd|rd|th)\s+person\b|\b(first|second|third|fourth|fifth|last)\s+person\b/i;
+const промптБайта = (label) => {
+  const м = label.match(БАЙТ);
+  const n = м[1] || { first: 1, second: 2, third: 3, fourth: 4, fifth: 5, last: "last" }[м[2].toLowerCase()];
+  return "clean glossy 3D illustration for a TikTok bait question \"" + label + "\": a big share icon "
+    + "(curved arrow) above a share menu with a row of round faceless contact avatars, the "
+    + (n === "last" ? "last" : "number " + n) + " avatar strongly highlighted with a glowing ring and a big bold "
+    + "\"" + (n === "last" ? "LAST" : n) + "\" badge, plus a small symbol of the action next to it. "
+    + "The whole composition is fully visible inside the frame, nothing cut off, fills about 85% "
+    + "of the image. Pure flat solid white background #FFFFFF, no gradient, no shadows, no real faces";
+};
+
+const промптКартинки = (label, i = 0) => БАЙТ.test(label) ? промптБайта(label) :
   "professional advertising food photography of " + ПОДАЧИ[i % ПОДАЧИ.length] + " " + label +
   " (if it is not food — a single bold eye-catching shot of it), mouth-watering, glossy, " +
   "vivid colors, rich textures. The whole composition is fully visible inside the frame, " +
   "nothing cut off or cropped at any edge; it is large and fills about 85% of the image, " +
   "with a small even white margin on all sides. Pure flat solid white background #FFFFFF, " +
-  "no gradient, no shadows, no floor, no logos, no text, no watermark. " +
+  "no gradient, no shadows, no floor, no watermark. " +
   "Ultra sharp focus, studio lighting, high detail, 8k";
 
 const копироватьТекст = async (текст, кнопка) => {
@@ -2231,11 +2245,12 @@ const промптыОтНейросети = async (пункты, пишем = (
     "Правила для каждого промпта:\n" +
     "- фон строго ЧИСТО БЕЛЫЙ, и ОБЯЗАТЕЛЬНО напиши цвет фона кодом «#FFFFFF» прямо в тексте промпта; без теней, градиентов, пола;\n" +
     "- ВЕСЬ предмет/композиция ЦЕЛИКОМ в кадре: ничего не обрезано краями (бокал целиком с трубочкой, клешни и хвост лобстера, вся тарелка); при этом КРУПНО — занимает около 85% кадра, по краям лишь тонкое белое поле. Пиши это явно: «fully visible inside the frame, nothing cut off or cropped at any edge, fills about 85% of the image, small even white margin on all sides»;\n" +
-    "- ОЧЕНЬ аппетитно: сочные текстуры, тянущийся сыр, тающий шоколад, хрустящая корочка, капли, глазурь; рекламная съёмка, резко, high detail; no text, no logos, no watermark;\n" +
+    "- ОЧЕНЬ аппетитно: сочные текстуры, тянущийся сыр, тающий шоколад, хрустящая корочка, капли, глазурь; рекламная съёмка, резко, high detail; no watermark;\n" +
     "- ИЗОБИЛИЕ: чаще всего в кадре МНОГО штук сразу, а не одна — ряд из 4-5 разных милкшейков, гора наггетсов, корзинка чуррос, горка пончиков с разной глазурью, стопка брауни, большое блюдо/противень, открытая коробка с едой. Одиночный предмет — только если так эффектнее (один огромный бургер, рожок с тремя шариками);\n" +
     "- НЕ ОДНОТИПНО: промпты в списке должны отличаться друг от друга подачей (ряд, горка, стопка, блюдо, корзинка, коробка, ложка/вилка с тянущимся сыром, разлом пополам), набором вкусов и деталей. Не начинай все промпты одинаково и не копируй одни и те же фразы-описания;\n" +
     "- СОУСЫ НЕ ВЕЗДЕ: соус/дип добавляй только там, где его правда едят (наггетсы — 2-3 разных соуса в чашечках, картошка, крылышки, чуррос — шоколадный дип, морепродукты — растопленное масло и лимон). Десерты, напитки, бургеры, пицца, выпечка — БЕЗ кетчупа и соусов. Не добавляй случайную зелень;\n" +
-    "- бренд/ресторан (McDonald's, KFC, Dunkin, Arby's, Red Lobster…) — покажи их узнаваемую фирменную еду набором (сэндвичи, картошка, пончики с напитками, блюдо морепродуктов), но без логотипов и надписей;\n" +
+    "- ФРАЗЫ-БАЙТЫ про «человека»: «marry the 3rd person», «have kids with the 1st person», «tag the 2nd person» и т. п. Здесь «3rd person» — это ТРЕТИЙ человек в меню «Поделиться» в TikTok (ряд круглых аватарок друзей, кому отправить ролик). Картинка: крупный значок «Поделиться» (стрелка/самолётик) и меню отправки с рядом круглых аватарок-силуэтов, где нужная по счёту аватарка (3-я, 1-я…) выделена — подсвечена, обведена, с крупной цифрой; рядом символ действия (обручальные кольца для marry, детская коляска/малыш для kids, сердце для date/kiss). Без реальных лиц — силуэты или безликие аватарки. Чистая 3D-иллюстрация/иконка на белом #FFFFFF;\n" +
+    "- противоположный вариант в таких парах («never have kids», «stay single», «reject the offer») — простая понятная 3D-иконка смысла (перечёркнутая коляска, одинокое сердце, красный крестик) на белом #FFFFFF;\n" +
     "- не-еда (машина, город, животное, гаджет, фраза-действие) — одна яркая эффектная картинка предмета или простая понятная иллюстрация/3D-иконка смысла фразы, без еды и соусов.\n\n" +
     "Верни ТОЛЬКО JSON: {\"промпты\":[{\"подпись\":\"...\",\"промпт\":\"...\"}]}. Подписи — ДОСЛОВНО из списка.\n\n" +
     "Список:\n" + пункты.map((p, i) => (i + 1) + ". " + p).join("\n");
