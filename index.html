@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-12";
+window.__ВЕРСИЯ = "2026-10-07-13";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -121,8 +121,19 @@ window.__ВЕРСИЯ = "2026-10-07-12";
        display:flex;flex-direction:column;align-items:center;justify-content:center}
   .кадр .пол.верх{top:0;flex-direction:column}
   .кадр .пол.низ{bottom:0;flex-direction:column-reverse}
-  .кадр .снимок{width:74%;aspect-ratio:16/9;background:#2c201a center/cover no-repeat;
-       margin:5px 0}
+  /* Картинка как в ролике: 910 × 640 в 90 px от края кадра (образец Вики). */
+  .кадр .снимок{width:84.26%;aspect-ratio:910/640;background:#2c201a center/cover no-repeat;
+       margin:0;flex:0 0 auto}
+  .кадр:not(.лист) .пол{justify-content:flex-start}
+  .кадр:not(.лист) .пол.верх{padding-top:8.33%}
+  .кадр:not(.лист) .пол.низ{padding-bottom:8.33%}
+  .кадр:not(.лист) .пол.верх .снимок{margin-bottom:1.67%}
+  .кадр:not(.лист) .пол.низ .снимок{margin-top:1.67%}
+  /* «Конфетный»: горошек и чёрные таблички. */
+  .кадр.конфетный .пол{background-image:radial-gradient(rgba(255,255,255,.25) 1.2px,transparent 1.5px)!important;
+       background-size:10px 10px!important}
+  .кадр.конфетный .подпись{background:#111;color:#fff;border-radius:999px;padding:1px 6px 2px;
+       text-shadow:none}
   .кадр .подпись{color:#fff;font-weight:800;font-size:7.5px;text-align:center;
        line-height:1.05;text-shadow:0 1px 2px rgba(0,0,0,.45);padding:0 4px;max-width:92%}
   .кадр .полоса{position:absolute;left:0;right:0;top:calc(50% - 4px);height:8px;
@@ -504,6 +515,7 @@ window.__ВЕРСИЯ = "2026-10-07-12";
         <option value="терракота">терракота и бирюза</option>
         <option value="красный-синий">красный и синий</option>
         <option value="розовый-голубой">розовый и голубой</option>
+        <option value="конфетный">конфетный: горошек и чёрные таблички</option>
         <option value="белое">белый лист, картинки без фона</option>
       </select>
       <div class="гамма" id="гамма-превью"><i></i><i></i></div>
@@ -1462,6 +1474,7 @@ const кадрЭтоИлиТо = (холст, номер = 0) => {
   // вокруг кружка.
   const лист = state.theme === "белое";
   холст.classList.toggle("лист", лист);
+  холст.classList.toggle("конфетный", state.theme === "конфетный");
   const проЛист = document.getElementById("кадр-про-лист");
   if (проЛист) проЛист.classList.toggle("hide", !лист);
 
@@ -2022,8 +2035,10 @@ const рисовать = () => {
       '<div class="side"><div class="photo" data-side="bottom">+</div>' +
       '<input data-side="bottom" placeholder="снизу"></div>' +
       '<div class="вид-картинки">' +
-        '<button type="button" data-вид="16:9" title="Горизонтальная яркая картинка 16:9, фон любой">' +
-          '<i class="значок-прямоуг"></i>16:9</button>' +
+        // Значение «16:9» внутреннее (так его понимает сборка); показываем 3:2 —
+        // такая у картинки в ролике пропорция (910 × 640, как на образце Вики).
+        '<button type="button" data-вид="16:9" title="Горизонтальная яркая картинка 3:2, фон любой">' +
+          '<i class="значок-прямоуг"></i>3:2</button>' +
         '<button type="button" data-вид="белый" title="Предмет на белом фоне — вписывается целиком">' +
           '<span class="значок-фигурка">🍔</span>на белом</button>' +
       '</div>' +
@@ -2206,9 +2221,9 @@ const промптОбложки = (label, i) => {
     + "#FFFFFF, no gradient, no shadows, no watermark. Ultra sharp focus, studio lighting, 8k";
 };
 
-// Вид [16:9]: яркая горизонтальная фотография на любом фоне.
+// Вид [3:2]: яркая горизонтальная фотография на любом фоне.
 const промпт169 = (label, i) =>
-  "16:9 horizontal food photography, professional advertising shot of " + ПОДАЧИ[i % ПОДАЧИ.length] + " "
+  "3:2 horizontal food photography, professional advertising shot of " + ПОДАЧИ[i % ПОДАЧИ.length] + " "
   + label.replace(/^ОБЛОЖКА\s+\S+\s+—\s+/, "").replace(/\bedition\b/gi, "").trim()
   + ", extremely vivid saturated colors, glossy, juicy, steam and melting textures, makes you hungry, "
   + "close-up filling the whole frame, rich fitting background (rustic wooden table or bright colorful backdrop "
@@ -2312,13 +2327,13 @@ const промптыОтНейросети = async (пункты, пишем = (
     "Ты помогаешь делать картинки для видео-викторины «это или то».\n" +
     "Ниже список предметов/блюд. Для КАЖДОГО придумай короткий промпт на\n" +
     "АНГЛИЙСКОМ для генерации ОДНОЙ картинки (40-80 слов).\n\n" +
-    "У каждого пункта в квадратных скобках указан ВИД картинки — [НА БЕЛОМ] или [16:9]. Пиши промпт строго под этот вид.\n\n" +
+    "У каждого пункта в квадратных скобках указан ВИД картинки — [НА БЕЛОМ] или [3:2]. Пиши промпт строго под этот вид.\n\n" +
     "Вид [НА БЕЛОМ] — предмет на чистом белом фоне (потом его могут вырезать из фона):\n" +
     "- фон строго ЧИСТО БЕЛЫЙ, и ОБЯЗАТЕЛЬНО напиши цвет фона кодом «#FFFFFF» прямо в тексте промпта; без теней, градиентов, пола;\n" +
     "- ВЕСЬ предмет/композиция ЦЕЛИКОМ в кадре: ничего не обрезано краями (бокал целиком с трубочкой, клешни и хвост лобстера, вся тарелка); при этом КРУПНО — занимает около 85% кадра, по краям лишь тонкое белое поле. Пиши это явно: «fully visible inside the frame, nothing cut off or cropped at any edge, fills about 85% of the image, small even white margin on all sides»;\n" +
     "- формат квадратный или горизонтальный — как удобнее предмету;\n\n" +
-    "Вид [16:9] — горизонтальная рекламная фотография еды:\n" +
-    "- формат СТРОГО горизонтальный 16:9, пиши явно: «16:9 horizontal food photography»;\n" +
+    "Вид [3:2] — горизонтальная рекламная фотография еды:\n" +
+    "- формат СТРОГО горизонтальный 3:2, пиши явно: «3:2 horizontal food photography»;\n" +
     "- ОЧЕНЬ яркая, насыщенная, сочная — еду хочется съесть прямо с экрана; блеск, пар, тянущийся сыр, капли, глазурь, крупный план;\n" +
     "- фон ЛЮБОЙ подходящий, не белый: деревянный стол, ресторан, кухня, доска, тёмный или яркий цветной фон с боке; еда крупно заполняет весь кадр, края могут уходить за рамку, как в рекламе;\n\n" +
     "Общие правила для обоих видов:\n" +
@@ -2331,7 +2346,7 @@ const промптыОтНейросети = async (пункты, пишем = (
     "- противоположный вариант в таких парах («never have kids», «stay single», «reject the offer») — простая понятная 3D-иконка смысла (перечёркнутая коляска, одинокое сердце, красный крестик) на белом #FFFFFF;\n" +
     "- не-еда (машина, город, животное, гаджет, фраза-действие) — одна яркая эффектная картинка предмета или простая понятная иллюстрация/3D-иконка смысла фразы, без еды и соусов.\n\n" +
     "Верни ТОЛЬКО JSON: {\"промпты\":[{\"подпись\":\"...\",\"промпт\":\"...\"}]}. Подписи — ДОСЛОВНО из списка.\n\n" +
-    "Список:\n" + пункты.map((p, i) => (i + 1) + ". " + p.label + " [" + (p.вид === "16:9" ? "16:9" : "НА БЕЛОМ") + "]").join("\n");
+    "Список:\n" + пункты.map((p, i) => (i + 1) + ". " + p.label + " [" + (p.вид === "16:9" ? "3:2" : "НА БЕЛОМ") + "]").join("\n");
 
   let последняя = "не ответила";
   for (const model of кандидаты) {
@@ -2420,7 +2435,7 @@ $("кнопка-промпты").addEventListener("click", безопасно("�
     card.className = "card";
 
     const имя = document.createElement("b");
-    имя.textContent = label + (вид === "16:9" ? "  ▭ 16:9" : "  🍔 на белом");
+    имя.textContent = label + (вид === "16:9" ? "  ▭ 3:2" : "  🍔 на белом");
     card.appendChild(имя);
 
     const тело = document.createElement("div");
@@ -2769,6 +2784,7 @@ const ГАММЫ = {
   "терракота": ["#C1613C", "#12888A"],
   "красный-синий": ["#D12E2E", "#2340B8"],
   "розовый-голубой": ["#E23A63", "#2B7FD4"],
+  "конфетный": ["#FF4F8B", "#2D8CFF"],
   // Белый лист половин не красит вовсе: в полоске показываем сам лист
   // и чёрный текст, который на нём лежит.
   "белое": ["#FFFFFF", "#141414"],
