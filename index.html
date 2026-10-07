@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-11";
+window.__ВЕРСИЯ = "2026-10-07-12";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -1919,9 +1919,28 @@ const ужать = (file) =>
         // файле — и на белом листе предмет ложится на белое, нигде и
         // никогда не чернеет (ни в превью, ни в ролике, ни на каком
         // телефоне). «Без фона» = «на белом», как и просили.
+        //
+        // ТЕПЕРЬ ИНАЧЕ: фото «без фона» (вырезанное на айфоне) оставляем
+        // ПРОЗРАЧНЫМ. Вика: «вырезанные фото с айфона должны быть без фона в
+        // принципе — фон за ними может быть сине-красным». Прозрачное уходит
+        // PNG (у PNG есть прозрачность, чёрным оно не станет), обычное фото —
+        // как раньше, JPEG на белом.
+        ctx.drawImage(img, 0, 0, цель.ш, цель.в);
+        let прозрачное = false;
+        try {
+          const точки = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+          for (let i = 3; i < точки.length; i += 4 * 7) {
+            if (точки[i] < 250) { прозрачное = true; break; }
+          }
+        } catch (e) { /* не прочиталось — считаем обычным фото */ }
+        if (прозрачное) {
+          const data = canvas.toDataURL("image/png");
+          resolve(data.slice(data.indexOf(",") + 1));
+          return;
+        }
+        ctx.globalCompositeOperation = "destination-over";
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, цель.ш, цель.в);
         const data = canvas.toDataURL("image/jpeg", 0.85);
         resolve(data.slice(data.indexOf(",") + 1));
       };
