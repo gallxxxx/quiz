@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-41";
+window.__ВЕРСИЯ = "2026-10-07-42";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -440,6 +440,8 @@ window.__ВЕРСИЯ = "2026-10-07-41";
   .ролик{display:flex;gap:12px;align-items:stretch;padding:12px;margin:10px 0;border:1px solid var(--line);
     border-radius:16px;background:rgba(255,255,255,.03);cursor:pointer;position:relative}
   .ролик.открыт{border-color:var(--gold)}
+  .крош.скопировано{background:#16302f;color:#9fe0c8;border-color:#1f5a4f}
+  .card.промпт-взят{opacity:.6}
   .ролик .миниатюры{display:flex;flex-direction:column;width:58px;flex:0 0 58px;border-radius:10px;overflow:hidden}
   .ролик .миниатюры div{flex:1;min-height:42px;background-size:cover;background-position:center}
   .ролик .суть{flex:1;min-width:0}
@@ -2691,8 +2693,14 @@ const промптКартинки = (label, i = 0, вид = "белый") => в
   "no gradient, no shadows, no floor, no watermark. " +
   "Ultra sharp focus, studio lighting, high detail, 8k";
 
-const копироватьТекст = async (текст, кнопка) => {
-  const ок = () => { кнопка.textContent = "Скопировано ✓"; setTimeout(() => (кнопка.textContent = "Копировать"), 1500); };
+// «послеОк» — запомнить, что скопировано: надпись «Скопировано ✓» тогда
+// остаётся насовсем (Вика: «чтобы не путаться», какие уже взяла).
+const копироватьТекст = async (текст, кнопка, послеОк = null) => {
+  const ок = () => {
+    кнопка.textContent = "Скопировано ✓";
+    if (послеОк) { послеОк(); return; }
+    setTimeout(() => (кнопка.textContent = "Копировать"), 1500);
+  };
   try {
     await navigator.clipboard.writeText(текст);
     ок();
@@ -3039,8 +3047,20 @@ const рисоватьПромпты = (п, пояснение = "") => {
     const кноп = document.createElement("button");
     кноп.type = "button";
     кноп.className = "крош";
-    кноп.textContent = "Копировать";
-    кноп.addEventListener("click", () => копироватьТекст(текст, кноп));
+    // Скопированный промпт помечаем насовсем — по самому тексту: если
+    // промпт переписали, пометка с него сама снимается.
+    const скопирован = () => (п.скопировано || []).includes(текст);
+    const отметить = () => {
+      кноп.textContent = скопирован() ? "Скопировано ✓" : "Копировать";
+      кноп.classList.toggle("скопировано", скопирован());
+      card.classList.toggle("промпт-взят", скопирован());
+    };
+    отметить();
+    кноп.addEventListener("click", () => копироватьТекст(текст, кноп, () => {
+      п.скопировано = [...new Set([...(п.скопировано || []), текст])];
+      if (state.промпты === п) сохранить();
+      отметить();
+    }));
     card.appendChild(кноп);
 
     выход.appendChild(card);
@@ -3096,7 +3116,8 @@ const писатьПромпты = async (заново = false) => {
       const т = (карта && карта.get(к)) || (готов(п) ? былоКарта.get(к) : null);
       if (т) все.set(к, т);
     }
-    return { пункты, карта: все.size ? [...все.entries()] : null, модель, когда: Date.now() };
+    return { пункты, карта: все.size ? [...все.entries()] : null, модель, когда: Date.now(),
+      скопировано: (!заново && state.промпты && state.промпты.скопировано) || [] };
   };
   if (!новые.length) {
     const итог = собрать(null, state.промпты.модель);
