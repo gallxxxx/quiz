@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-10";
+window.__ВЕРСИЯ = "2026-10-07-11";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -92,6 +92,17 @@ window.__ВЕРСИЯ = "2026-10-07-10";
   .тумблер button{flex:1;margin:0;padding:13px 10px;font-size:15px;
        border-radius:12px;background:var(--panel);color:var(--cream);
        border:1px solid var(--line);font-weight:600}
+  .вид-картинки{display:flex;gap:8px;margin:10px 0 2px}
+  .вид-картинки button{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;
+       background:#1f1712;color:#b9a08f;border:1px solid var(--line);border-radius:10px;
+       padding:8px 6px;font:inherit;font-size:14px;cursor:pointer}
+  .вид-картинки button.выбран{border-color:var(--turq);color:var(--cream);background:#16302f}
+  .значок-прямоуг{display:inline-block;width:32px;height:18px;border-radius:2px;
+       background:linear-gradient(135deg,#E8B65F,#C1613C)}
+  .значок-фигурка{font-size:20px;line-height:1;background:#fff;border-radius:6px;padding:1px 3px}
+  label.галка{display:flex;align-items:center;gap:10px;font-size:16px;color:var(--cream);
+       margin:14px 0 0;cursor:pointer}
+  label.галка input{width:22px;height:22px;accent-color:var(--turq);flex:0 0 auto}
   .тумблер button.выбран{background:var(--turq);color:#fff;border-color:transparent}
   /* ПОЛОСА ШАГОВ. Раньше шаг был просто надписью «Шаг 2 из 4»: она
      говорила, где ты, но вернуться назад было нечем — только кнопкой
@@ -427,30 +438,17 @@ window.__ВЕРСИЯ = "2026-10-07-10";
 
     <h2>Заставка</h2>
     <div class="card">
-      <label>Крупная фраза</label>
-      <input id="hook" placeholder="IF IT WAS FREE, WHAT WOULD YOU EAT?">
-      <label>Тема выпуска</label>
-      <input id="edition" placeholder="FOOD EDITION">
-      <label>Показывать заставку</label>
-      <select id="introOn">
-        <option value="да">да — сначала заставка, потом вопросы</option>
-        <option value="нет">нет — сразу первый выбор</option>
-      </select>
-      <label>Обложка «This or that» в начале</label>
-      <select id="coverOn">
-        <option value="нет">нет</option>
-        <option value="да">да — сверху «This or that», снизу тема выпуска, картинки вылетают</option>
-      </select>
-      <label>Показывать концовку</label>
-      <select id="outroOn">
-        <option value="нет">нет — ролик кончается сразу после вопроса</option>
-        <option value="да">да — «HOW MANY MATCHED?» и призыв</option>
-      </select>
-      <div class="muted" style="margin-top:8px">Пиши по-английски: по этим словам ещё и картинки ищутся.
-      Фраза и тема нужны, даже если заставка выключена — по ним ищутся картинки и строится озвучка.
-      <br><br>Концовка по умолчанию выключена: это пять секунд в конце, на
-      которых зритель уходит, а от процента досмотра зависит, покажут ли
-      ролик дальше.</div>
+      <label>Надпись сверху</label>
+      <input id="hook" placeholder="This or that">
+      <label>Тема выпуска — надпись снизу</label>
+      <input id="edition" placeholder="Fast food Edition">
+      <label class="галка"><input type="checkbox" id="coverOn"> Показывать заставку</label>
+      <label class="галка"><input type="checkbox" id="outroOn"> Показывать концовку</label>
+      <div class="muted" style="margin-top:8px">Заставка — первый кадр: сверху «This or that», снизу
+      тема выпуска, картинки вылетают как в вопросах. Пиши по-английски.</div>
+      <!-- Старый выбор заставки больше не нужен: заставка теперь и есть
+           обложка «This or that». Элемент оставлен скрытым для кода. -->
+      <select id="introOn" class="hide"><option value="нет">нет</option></select>
     </div>
 
     <div class="card кадрбокс" id="кадр-editor">
@@ -511,7 +509,6 @@ window.__ВЕРСИЯ = "2026-10-07-10";
       <div class="гамма" id="гамма-превью"><i></i><i></i></div>
       <label>Край картинки</label>
       <select id="edge">
-        <option value="рамка">в кремовой рамке, углы скруглённые</option>
         <option value="острый">без рамки, углы острые</option>
         <option value="размытый">без рамки, края растворяются в фоне</option>
       </select>
@@ -1245,10 +1242,10 @@ const новыйНаТехЖе = () => {
   state.rounds = Array.from({ length: сколько }, () => ({
     top: "", bottom: "", pct: 55, picks: {}, photos: {},
   }));
-  state.hook = "";
+  state.hook = "This or that";
   state.edition = "";
   сохранить();
-  $("hook").value = "";
+  $("hook").value = state.hook;
   $("edition").value = "";
   рисовать();
   сказатьНаЭкране("готово",
@@ -1446,11 +1443,11 @@ const крайКартинки = (эл, край) => {
 let листКадра = 0;
 
 const кадрЭтоИлиТо = (холст, номер = 0) => {
-  const [верх, низ] = ГАММЫ[state.theme] ?? ГАММЫ["терракота"];
+  const [верх, низ] = ГАММЫ[state.theme] ?? ГАММЫ["розовый-голубой"];
   const всего = (state.rounds || []).length;
   const n = Math.max(0, Math.min(номер, всего - 1));
   const раунд = (state.rounds || [])[n] || { top: "", bottom: "", pct: 55 };
-  const край = state.edge || "рамка";
+  const край = state.edge || "острый";
 
   // БЕЛЫЙ ЛИСТ — ЭТО ДРУГОЙ КАДР, А НЕ ДРУГИЕ ЦВЕТА.
   //
@@ -1757,13 +1754,16 @@ const KEY_ПОИСК = "викторина-поиск-ролика"; // каки
 //  Память страницы
 // ——————————————————————————————————————————————————————————
 const ПУСТО = () => ({
-  hook: "IF IT WAS FREE, WHAT WOULD YOU EAT?",
-  edition: "FOOD EDITION",
+  hook: "This or that",
+  edition: "Fast food Edition",
+  // Оформление по умолчанию (Вика): розовый и голубой, без рамки, углы острые.
+  theme: "розовый-голубой",
+  edge: "острый",
   mode: "фото",
   shot: "крупный",
   voice: "en-US-GuyNeural",
-  introOn: "да",
-  coverOn: "нет",
+  introOn: "нет",
+  coverOn: "да",
   // Концовку по умолчанию не показываем: она режет досмотр.
   outroOn: "нет",
   rounds: [
@@ -1780,6 +1780,13 @@ try {
 } catch {}
 // У выпусков, собранных до появления проверки картинок, поля picks нет.
 for (const r of state.rounds) if (!r.picks) r.picks = {};
+// Кремовой рамки больше нет вовсе (Вика) — у старых черновиков она
+// становится острым краем без рамки.
+if (!state.edge || state.edge === "рамка") state.edge = "острый";
+if (!state.theme) state.theme = "розовый-голубой";
+// Старая заставка с крупной фразой ушла — надпись сверху теперь «This or that».
+if (!state.hook || state.hook === "IF IT WAS FREE, WHAT WOULD YOU EAT?") state.hook = "This or that";
+if (!state.coverOn) state.coverOn = "да";
 // Мягкий шёпот убран по просьбе Вики — у старых выпусков он становится
 // обычным шёпотом того же голоса, а не пропадает в пустой выбор.
 if (typeof state.voice === "string") state.voice = state.voice.replace("+мягкий шёпот", "+шёпот");
@@ -1995,6 +2002,12 @@ const рисовать = () => {
       '<input data-side="top" placeholder="сверху"></div>' +
       '<div class="side"><div class="photo" data-side="bottom">+</div>' +
       '<input data-side="bottom" placeholder="снизу"></div>' +
+      '<div class="вид-картинки">' +
+        '<button type="button" data-вид="16:9" title="Горизонтальная яркая картинка 16:9, фон любой">' +
+          '<i class="значок-прямоуг"></i>16:9</button>' +
+        '<button type="button" data-вид="белый" title="Предмет на белом фоне — вписывается целиком">' +
+          '<span class="значок-фигурка">🍔</span>на белом</button>' +
+      '</div>' +
       '<div class="row"><input type="range" min="20" max="80" value="' + r.pct + '">' +
       '<div class="pct">' + r.pct + " / " + (100 - r.pct) + "</div></div>";
 
@@ -2005,6 +2018,17 @@ const рисовать = () => {
     // Подпись поменялась — прежний выбор картинки к ней уже не относится.
     top.addEventListener("input", () => { r.top = top.value; r.picks.top = null; сохранить(); });
     bottom.addEventListener("input", () => { r.bottom = bottom.value; r.picks.bottom = null; сохранить(); });
+
+    const кнопкиВида = el.querySelectorAll(".вид-картинки button");
+    const отметитьВид = () => кнопкиВида.forEach((к) =>
+      к.classList.toggle("выбран", к.dataset.вид === видВопроса(r)));
+    отметитьВид();
+    кнопкиВида.forEach((к) => к.addEventListener("click", () => {
+      r.вид = к.dataset.вид;
+      отметитьВид();
+      сохранить();
+      рисоватьКадр("editor");
+    }));
 
     const range = el.querySelector('input[type="range"]');
     range.addEventListener("input", () => {
@@ -2163,7 +2187,16 @@ const промптОбложки = (label, i) => {
     + "#FFFFFF, no gradient, no shadows, no watermark. Ultra sharp focus, studio lighting, 8k";
 };
 
-const промптКартинки = (label, i = 0) => /^ОБЛОЖКА /.test(label) ? промптОбложки(label, i)
+// Вид [16:9]: яркая горизонтальная фотография на любом фоне.
+const промпт169 = (label, i) =>
+  "16:9 horizontal food photography, professional advertising shot of " + ПОДАЧИ[i % ПОДАЧИ.length] + " "
+  + label.replace(/^ОБЛОЖКА\s+\S+\s+—\s+/, "").replace(/\bedition\b/gi, "").trim()
+  + ", extremely vivid saturated colors, glossy, juicy, steam and melting textures, makes you hungry, "
+  + "close-up filling the whole frame, rich fitting background (rustic wooden table or bright colorful backdrop "
+  + "with soft bokeh), dramatic appetizing lighting, ultra sharp, 8k, no watermark";
+
+const промптКартинки = (label, i = 0, вид = "белый") => вид === "16:9" ? промпт169(label, i)
+  : /^ОБЛОЖКА /.test(label) ? промптОбложки(label, i)
   : БАЙТ.test(label) ? промптБайта(label) :
   "professional advertising food photography of " + ПОДАЧИ[i % ПОДАЧИ.length] + " " + label +
   " (if it is not food — a single bold eye-catching shot of it), mouth-watering, glossy, " +
@@ -2260,10 +2293,16 @@ const промптыОтНейросети = async (пункты, пишем = (
     "Ты помогаешь делать картинки для видео-викторины «это или то».\n" +
     "Ниже список предметов/блюд. Для КАЖДОГО придумай короткий промпт на\n" +
     "АНГЛИЙСКОМ для генерации ОДНОЙ картинки (40-80 слов).\n\n" +
-    "Правила для каждого промпта:\n" +
+    "У каждого пункта в квадратных скобках указан ВИД картинки — [НА БЕЛОМ] или [16:9]. Пиши промпт строго под этот вид.\n\n" +
+    "Вид [НА БЕЛОМ] — предмет на чистом белом фоне (потом его могут вырезать из фона):\n" +
     "- фон строго ЧИСТО БЕЛЫЙ, и ОБЯЗАТЕЛЬНО напиши цвет фона кодом «#FFFFFF» прямо в тексте промпта; без теней, градиентов, пола;\n" +
-    "- кадр ГОРИЗОНТАЛЬНЫЙ, широкий: формат 16:10 (в ролике картинка лежит широким прямоугольником). Композиция вытянута по ширине — ряд, горка, блюдо, разложенные в стороны. Пиши явно: «wide horizontal 16:10 landscape composition»;\n" +
     "- ВЕСЬ предмет/композиция ЦЕЛИКОМ в кадре: ничего не обрезано краями (бокал целиком с трубочкой, клешни и хвост лобстера, вся тарелка); при этом КРУПНО — занимает около 85% кадра, по краям лишь тонкое белое поле. Пиши это явно: «fully visible inside the frame, nothing cut off or cropped at any edge, fills about 85% of the image, small even white margin on all sides»;\n" +
+    "- формат квадратный или горизонтальный — как удобнее предмету;\n\n" +
+    "Вид [16:9] — горизонтальная рекламная фотография еды:\n" +
+    "- формат СТРОГО горизонтальный 16:9, пиши явно: «16:9 horizontal food photography»;\n" +
+    "- ОЧЕНЬ яркая, насыщенная, сочная — еду хочется съесть прямо с экрана; блеск, пар, тянущийся сыр, капли, глазурь, крупный план;\n" +
+    "- фон ЛЮБОЙ подходящий, не белый: деревянный стол, ресторан, кухня, доска, тёмный или яркий цветной фон с боке; еда крупно заполняет весь кадр, края могут уходить за рамку, как в рекламе;\n\n" +
+    "Общие правила для обоих видов:\n" +
     "- ОЧЕНЬ аппетитно: сочные текстуры, тянущийся сыр, тающий шоколад, хрустящая корочка, капли, глазурь; рекламная съёмка, резко, high detail; no watermark;\n" +
     "- ИЗОБИЛИЕ: чаще всего в кадре МНОГО штук сразу, а не одна — ряд из 4-5 разных милкшейков, гора наггетсов, корзинка чуррос, горка пончиков с разной глазурью, стопка брауни, большое блюдо/противень, открытая коробка с едой. Одиночный предмет — только если так эффектнее (один огромный бургер, рожок с тремя шариками);\n" +
     "- НЕ ОДНОТИПНО: промпты в списке должны отличаться друг от друга подачей (ряд, горка, стопка, блюдо, корзинка, коробка, ложка/вилка с тянущимся сыром, разлом пополам), набором вкусов и деталей. Не начинай все промпты одинаково и не копируй одни и те же фразы-описания;\n" +
@@ -2273,7 +2312,7 @@ const промптыОтНейросети = async (пункты, пишем = (
     "- противоположный вариант в таких парах («never have kids», «stay single», «reject the offer») — простая понятная 3D-иконка смысла (перечёркнутая коляска, одинокое сердце, красный крестик) на белом #FFFFFF;\n" +
     "- не-еда (машина, город, животное, гаджет, фраза-действие) — одна яркая эффектная картинка предмета или простая понятная иллюстрация/3D-иконка смысла фразы, без еды и соусов.\n\n" +
     "Верни ТОЛЬКО JSON: {\"промпты\":[{\"подпись\":\"...\",\"промпт\":\"...\"}]}. Подписи — ДОСЛОВНО из списка.\n\n" +
-    "Список:\n" + пункты.map((p, i) => (i + 1) + ". " + p).join("\n");
+    "Список:\n" + пункты.map((p, i) => (i + 1) + ". " + p.label + " [" + (p.вид === "16:9" ? "16:9" : "НА БЕЛОМ") + "]").join("\n");
 
   let последняя = "не ответила";
   for (const model of кандидаты) {
@@ -2320,12 +2359,13 @@ $("кнопка-промпты").addEventListener("click", безопасно("�
   const пункты = [];
   // Обложка: две картинки на тему выпуска, тоже через нейросеть.
   if (обложкаВкл()) {
-    пункты.push("ОБЛОЖКА сверху — " + темаОбложки());
-    пункты.push("ОБЛОЖКА снизу — " + темаОбложки());
+    const вид = state.theme === "белое" ? "белый" : "16:9";
+    пункты.push({ label: "ОБЛОЖКА сверху — " + темаОбложки(), вид });
+    пункты.push({ label: "ОБЛОЖКА снизу — " + темаОбложки(), вид });
   }
   (state.rounds || []).forEach((r) => {
-    if ((r.top || "").trim()) пункты.push(r.top.trim());
-    if ((r.bottom || "").trim()) пункты.push(r.bottom.trim());
+    if ((r.top || "").trim()) пункты.push({ label: r.top.trim(), вид: видВопроса(r) });
+    if ((r.bottom || "").trim()) пункты.push({ label: r.bottom.trim(), вид: видВопроса(r) });
   });
 
   if (!пункты.length) {
@@ -2355,13 +2395,13 @@ $("кнопка-промпты").addEventListener("click", безопасно("�
   инфо.style.whiteSpace = "pre-line";
   выход.appendChild(инфо);
 
-  пункты.forEach((label, i) => {
-    const текст = (карта && карта.get(label.toLowerCase())) || промптКартинки(label, i);
+  пункты.forEach(({ label, вид }, i) => {
+    const текст = (карта && карта.get(label.toLowerCase())) || промптКартинки(label, i, вид);
     const card = document.createElement("div");
     card.className = "card";
 
     const имя = document.createElement("b");
-    имя.textContent = label;
+    имя.textContent = label + (вид === "16:9" ? "  ▭ 16:9" : "  🍔 на белом");
     card.appendChild(имя);
 
     const тело = document.createElement("div");
@@ -2558,7 +2598,7 @@ const заполнитьИзРазбора = (data) => {
     picks: {},
   }));
   if (data.тема) state.edition = String(data.тема).trim();
-  if (data.крючок) state.hook = String(data.крючок).trim();
+  // Надпись сверху — всегда «This or that»; крючок чужого ролика её не затирает.
   сохранить();
   рисовать();
   if ($("hook")) $("hook").value = state.hook || "";
@@ -2716,13 +2756,20 @@ const ГАММЫ = {
 };
 
 const рисоватьГамму = () => {
-  const [верх, низ] = ГАММЫ[state.theme] ?? ГАММЫ["терракота"];
+  const [верх, низ] = ГАММЫ[state.theme] ?? ГАММЫ["розовый-голубой"];
   const полосы = $("гамма-превью").children;
   полосы[0].style.background = верх;
   полосы[1].style.background = низ;
 };
 
-for (const id of ["hook", "edition", "mode", "shot", "voice", "introOn", "coverOn", "outroOn", "theme", "edge"]) {
+for (const [id, поле] of [["coverOn", "coverOn"], ["outroOn", "outroOn"]]) {
+  $(id).addEventListener("change", () => {
+    state[поле] = $(id).checked ? "да" : "нет";
+    рисоватьКадр("editor");
+    сохранить();
+  });
+}
+for (const id of ["hook", "edition", "mode", "shot", "voice", "theme", "edge"]) {
   $(id).addEventListener("input", () => {
     state[id] = $(id).value;
     if (id === "theme") рисоватьГамму();
@@ -3172,19 +3219,27 @@ const обложка = () => {
   const о = state.обложка;
   о.picks = о.picks || {};
   о.photos = о.photos || {};
-  о.top = "This or that";
+  о.top = (state.hook || "").trim() || "This or that";
   о.bottom = темаОбложки();
   return о;
 };
 const раунд = (i) => (i === -1 ? обложка() : state.rounds[i]);
+
+// ——— ВИД КАРТИНКИ В ВОПРОСЕ ———
+// Вика: «можно было выбрать, какой промпт будет писаться для картинок:
+// на белом фоне (который потом вырежут) или горизонтальные 16:9 —
+// очень яркие, сочные, фон любой». Это и форма в ролике: 16:9 заполняет
+// прямоугольник целиком, «на белом» вписывается целиком без обрезки.
+// Фон режется только на белом листе — и только у вида «на белом».
+const видВопроса = (r) => r.вид || (state.theme === "белое" ? "белый" : "16:9");
 
 const места = () => {
   const список = [];
   if (обложкаВкл()) {
     // Ищем по теме: «Fast food Edition» → «fast food».
     const запрос = темаОбложки().replace(/\bedition\b/gi, "").trim() || "food";
-    список.push({ round: -1, side: "top", подпись: "Обложка, сверху · This or that", запрос });
-    список.push({ round: -1, side: "bottom", подпись: "Обложка, снизу · " + темаОбложки(), запрос });
+    список.push({ round: -1, side: "top", подпись: "Заставка, сверху · " + обложка().top, запрос });
+    список.push({ round: -1, side: "bottom", подпись: "Заставка, снизу · " + темаОбложки(), запрос });
   }
   state.rounds.forEach((r, i) => {
     for (const side of ["top", "bottom"]) {
@@ -3245,7 +3300,9 @@ const рисоватьСлоты = () => {
 
     // Вырезать фон или оставить как есть — решение своё у каждой
     // картинки. По умолчанию — оставить как есть (см. «режем»).
-    const лист = state.theme === "белое";
+    // Резать фон можно только на белом листе и только у вида «на белом»:
+    // яркая картинка 16:9 ложится прямоугольником как есть.
+    const лист = state.theme === "белое" && (м.round === -1 || видВопроса(r) === "белый");
     const резать = режем(r, м.side);
     const готовыйВырез = r.вырезано && r.вырезано[м.side];
 
@@ -3553,6 +3610,8 @@ const собратьФайл = async () => {
     };
     вопросы.push({
       ...(этоОбложка ? { обложка: true } : {}),
+      // «16:9» — картинка заполняет прямоугольник; «белый» — вписывается целиком.
+      вид: этоОбложка ? (state.theme === "белое" ? "белый" : "16:9") : видВопроса(r),
       сверху: r.top.trim(),
       снизу: r.bottom.trim(),
       процент: этоОбложка ? 50 : r.pct,
@@ -3562,9 +3621,10 @@ const собратьФайл = async () => {
       },
       картинки: { сверху: картинка("top"), снизу: картинка("bottom") },
       // «нет» — эту картинку резать не надо, она ляжет на лист как есть.
+      // Картинку 16:9 не режем никогда — даже на белом листе.
       вырез: {
-        сверху: режем(r, "top") ? "да" : "нет",
-        снизу: режем(r, "bottom") ? "да" : "нет",
+        сверху: режем(r, "top") && (этоОбложка || видВопроса(r) === "белый") ? "да" : "нет",
+        снизу: режем(r, "bottom") && (этоОбложка || видВопроса(r) === "белый") ? "да" : "нет",
       },
       вырезано: { сверху: await вырез("top"), снизу: await вырез("bottom") },
     });
@@ -3578,7 +3638,9 @@ const собратьФайл = async () => {
       фраза: state.hook.trim(),
       тема: state.edition.trim(),
       // С обложкой старая заставка не нужна: обложка и есть начало ролика.
-      выключена: state.introOn === "нет" || обложкаВкл(),
+      // Старой заставки с крупной фразой больше нет: начало ролика —
+      // обложка «This or that» (если галочка стоит).
+      выключена: true,
     },
     концовка: {
       заголовок: "HOW MANY MATCHED?",
@@ -3594,7 +3656,7 @@ const собратьФайл = async () => {
       план: state.shot,
       озвучка: Boolean(state.voice),
       голос: state.voice || "en-US-GuyNeural",
-      цвета: state.theme || "терракота",
+      цвета: state.theme || "розовый-голубой",
       край: state.edge || "острый",
     },
   };
@@ -7249,12 +7311,11 @@ $("edition").value = state.edition || "";
 $("mode").value = state.mode || "фото";
 $("shot").value = state.shot || "крупный";
 $("voice").value = state.voice ?? "en-US-GuyNeural";
-$("theme").value = state.theme || "терракота";
+$("theme").value = state.theme || "розовый-голубой";
 $("edge").value = state.edge || "острый";
 рисоватьГамму();
-$("introOn").value = state.introOn || "да";
-$("coverOn").value = state.coverOn || "нет";
-$("outroOn").value = state.outroOn || "нет";
+$("coverOn").checked = (state.coverOn || "да") === "да";
+$("outroOn").checked = (state.outroOn || "нет") === "да";
 $("ключ-pexels").value = доступ.pexels || "";
 $("токен").value = доступ.токен || "";
 $("пароль-сайта").value = доступ.пароль || "";
