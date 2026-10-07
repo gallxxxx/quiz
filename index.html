@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-38";
+window.__ВЕРСИЯ = "2026-10-07-39";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -3146,7 +3146,6 @@ $("кнопка-промпты").addEventListener("click", безопасно("�
 // переводит с русского и видит проценты), а не звук. Всё в браузере:
 // режем кадры, складываем в один лист, шлём в OpenRouter (у него CORS
 // для браузера открыт — проверено), получаем JSON.
-const РАЗБОР_КАДРОВ = 20;
 
 // Подписи — как обычная фраза: первое слово с заглавной, остальные с
 // маленькой (Вика). «I» остаётся заглавной: «Comment I love it».
@@ -3156,8 +3155,9 @@ const какФраза = (т) => {
 };
 
 const ПРОМПТ_РАЗБОР =
-  "Перед тобой один лист с кадрами из видео-викторины «This or That» " +
-  "(«это или то»). Кадры идут по порядку: слева направо, затем сверху вниз. " +
+  "Перед тобой листы с кадрами из видео-викторины «This or That» " +
+  "(«это или то»). Листы идут по порядку, на каждом листе кадры — слева направо, затем сверху вниз. " +
+  "Один и тот же раунд виден на нескольких кадрах подряд — это ОДИН раунд, не повторяй его. " +
   "В каждом раунде зрителю показывают ДВА варианта: один в ВЕРХНЕЙ половине " +
   "кадра, другой в НИЖНЕЙ, между ними кружок «OR». Собери список раундов.\n\n" +
   "Верни ТОЛЬКО JSON:\n" +
@@ -3207,54 +3207,93 @@ const вытащитьJSONброузер = (текст) => {
 };
 
 // Кадры из ролика: перематываем видео по точкам и рисуем на холст.
-const кадрыИзРолика = (file, N) => new Promise((resolve, reject) => {
+// Кадры из ролика: перематываем видео по точкам и рисуем на холст.
+//
+// РАЗБОР СРАБАТЫВАЛ НЕ ВСЕГДА (Вика). Причины и что сделано:
+//   • кадр ужимался до 300 точек — мелкие подписи («Never have kids»)
+//     превращались в кашу из 5-точечных букв. Теперь 480;
+//   • кадров было ровно 20 на любой ролик — в длинном вопросы
+//     проскакивали между кадрами. Теперь кадр на каждые ~1,5 с (20…48);
+//   • на айфоне перемотка иногда «застревала», и разбор висел вечно —
+//     страховка срабатывала, только если не вышло НИ одного кадра.
+//     Теперь у каждой перемотки свой срок: застряла — кадр пропускаем.
+const кадрыИзРолика = (file) => new Promise((resolve, reject) => {
   const v = document.createElement("video");
   v.preload = "auto"; v.muted = true; v.playsInline = true;
+  // Safari надёжнее перематывает видео, которое лежит на странице.
+  v.style.cssText = "position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none";
+  document.body.appendChild(v);
   const url = URL.createObjectURL(file);
-  const убрать = () => { try { URL.revokeObjectURL(url); } catch (e) {} };
+  let кончено = false;
+  const убрать = () => {
+    кончено = true;
+    clearTimeout(сторож);
+    try { URL.revokeObjectURL(url); } catch (e) {}
+    try { v.remove(); } catch (e) {}
+  };
   const c = document.createElement("canvas");
   const кадры = [];
-  let dur = 0, i = 0;
-  v.onerror = () => { убрать(); reject(new Error("это не видео или формат не читается")); };
+  let dur = 0, i = 0, N = 20, сторож = null;
+  v.onerror = () => { if (кончено) return; убрать(); reject(new Error("это не видео или формат не читается")); };
   v.onloadedmetadata = () => {
     dur = v.duration || 0;
     if (!isFinite(dur) || dur <= 0) { убрать(); reject(new Error("не понял длину ролика")); return; }
-    const k = Math.min(1, 300 / (v.videoWidth || 300));
-    c.width = Math.max(1, Math.round((v.videoWidth || 300) * k));
-    c.height = Math.max(1, Math.round((v.videoHeight || 533) * k));
+    N = Math.max(20, Math.min(48, Math.round(dur / 1.5)));
+    const k = Math.min(1, 480 / (v.videoWidth || 480));
+    c.width = Math.max(1, Math.round((v.videoWidth || 480) * k));
+    c.height = Math.max(1, Math.round((v.videoHeight || 853) * k));
     дальше();
   };
   const дальше = () => {
-    if (i >= N) { убрать(); resolve({ кадры, cw: c.width, ch: c.height }); return; }
+    if (кончено) return;
+    if (i >= N) {
+      убрать();
+      if (!кадры.length) reject(new Error("ролик не раскодировался"));
+      else resolve({ кадры, cw: c.width, ch: c.height });
+      return;
+    }
+    clearTimeout(сторож);
+    // Перемотка застряла дольше 6 секунд — этот кадр пропускаем.
+    сторож = setTimeout(() => { i += 1; дальше(); }, 6000);
     try { v.currentTime = Math.min(Math.max(0, dur - 0.05), (dur * (i + 0.5)) / N); }
-    catch (e) { убрать(); reject(new Error("не смог перемотать ролик")); }
+    catch (e) { i += 1; setTimeout(дальше, 0); }
   };
   v.onseeked = () => {
+    if (кончено) return;
+    clearTimeout(сторож);
     try {
       c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
-      кадры.push(c.toDataURL("image/jpeg", 0.7));
+      кадры.push(c.toDataURL("image/jpeg", 0.75));
     } catch (e) { /* один кадр не вышел — не беда */ }
     i += 1;
     дальше();
   };
   v.src = url;
-  // Страховка: если видео вообще не раскодировалось за 40 секунд.
-  setTimeout(() => { if (i === 0) { убрать(); reject(new Error("ролик не раскодировался")); } }, 40000);
+  try { v.load(); } catch (e) {}
+  // Страховка: если видео вообще не открылось за 40 секунд.
+  setTimeout(() => { if (!кончено && i === 0 && !кадры.length) { убрать(); reject(new Error("ролик не раскодировался")); } }, 40000);
 });
 
-// Складываем кадры в один лист 4-в-ряд.
+// Складываем кадры в листы 4 × 2 (по 8 кадров): один огромный лист
+// нейросеть ужимает, и мелкие подписи снова тонут.
 const листИзКадров = async (кадры, cw, ch) => {
-  const cols = 4, rows = Math.ceil(кадры.length / cols);
-  const c = document.createElement("canvas");
-  c.width = cols * cw; c.height = rows * ch;
-  const g = c.getContext("2d");
-  g.fillStyle = "#222"; g.fillRect(0, 0, c.width, c.height);
-  for (let i = 0; i < кадры.length; i++) {
-    const img = new Image();
-    await new Promise((res) => { img.onload = res; img.onerror = res; img.src = кадры[i]; });
-    g.drawImage(img, (i % cols) * cw, Math.floor(i / cols) * ch, cw, ch);
+  const cols = 4, наЛист = 8;
+  const листы = [];
+  for (let от = 0; от < кадры.length; от += наЛист) {
+    const часть = кадры.slice(от, от + наЛист);
+    const rows = Math.ceil(часть.length / cols);
+    const c = document.createElement("canvas");
+    c.width = cols * cw; c.height = rows * ch;
+    const g = c.getContext("2d");
+    g.fillStyle = "#222"; g.fillRect(0, 0, c.width, c.height);
+    for (let i = 0; i < часть.length; i++) {
+      const img = new Image();
+      await new Promise((res) => { img.onload = res; img.onerror = res; img.src = часть[i]; });
+      g.drawImage(img, (i % cols) * cw, Math.floor(i / cols) * ch, cw, ch);
+    }
+    листы.push(c.toDataURL("image/jpeg", 0.82));
   }
-  return c.toDataURL("image/jpeg", 0.85);
+  return листы;
 };
 
 // Спрашиваем нейросеть (OpenRouter). Бесплатные модели капризны — то
@@ -3280,7 +3319,8 @@ const разборНейросетью = async (листDataUrl, статус) =
     model,
     messages: [{ role: "user", content: [
       { type: "text", text: ПРОМПТ_РАЗБОР },
-      { type: "image_url", image_url: { url: листDataUrl } },
+      ...(Array.isArray(листDataUrl) ? листDataUrl : [листDataUrl])
+        .map((url) => ({ type: "image_url", image_url: { url } })),
     ] }],
     temperature: 0,
     // «Думающие» модели (reasoning) тратят лимит на размышления и
@@ -3415,7 +3455,7 @@ const разобратьРолики = async (files, добавить) => {
     const из = files.length > 1 ? " (ролик " + (н + 1) + " из " + files.length + ")" : "";
     try {
       пиши("Читаю кадры из ролика…" + из);
-      const { кадры, cw, ch } = await кадрыИзРолика(file, РАЗБОР_КАДРОВ);
+      const { кадры, cw, ch } = await кадрыИзРолика(file);
       if (!кадры.length) throw new Error("не удалось взять кадры");
       пиши("Отправляю кадры нейросети, жду пары…" + из);
       const лист = await листИзКадров(кадры, cw, ch);
@@ -3517,7 +3557,7 @@ const смешатьРолики = async (files) => {
     // Оба ролика — нейросети одновременно: так вдвое быстрее.
     const разобрать = async (file, н) => {
       const из = " (ролик " + (н + 1) + " из 2)";
-      const { кадры, cw, ch } = await кадрыИзРолика(file, РАЗБОР_КАДРОВ);
+      const { кадры, cw, ch } = await кадрыИзРолика(file);
       if (!кадры.length) throw new Error("ролик " + (н + 1) + ": не удалось взять кадры");
       const лист = await листИзКадров(кадры, cw, ch);
       return разборНейросетью(лист, (т) => пиши(т + из));
