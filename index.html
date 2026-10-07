@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-14";
+window.__ВЕРСИЯ = "2026-10-07-15";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -129,9 +129,28 @@ window.__ВЕРСИЯ = "2026-10-07-14";
   .кадр:not(.лист) .пол.низ{padding-bottom:8.33%}
   .кадр:not(.лист) .пол.верх .снимок{margin-bottom:1.67%}
   .кадр:not(.лист) .пол.низ .снимок{margin-top:1.67%}
-  /* «Конфетный»: горошек и чёрные таблички. */
-  .кадр.конфетный .пол{background-image:radial-gradient(rgba(255,255,255,.25) 1.2px,transparent 1.5px)!important;
-       background-size:10px 10px!important}
+  /* «Конфетный» — как в ролике: мелкий белый горошек (52 px на 1080 — здесь
+     в той же доле), светлое пятно за картинкой, тонкая чёрная полоса с белым
+     отсчётом и белый кружок «OR» с чёрной обводкой посередине. */
+  .кадр.конфетный .пол.верх{background:
+       radial-gradient(60% 45% at 50% 38%,rgba(255,255,255,.32),rgba(255,255,255,0) 70%),
+       radial-gradient(rgba(255,255,255,.24) .55px,rgba(255,255,255,0) .7px) 0 0/6.4px 6.4px,
+       #FF4F8B!important}
+  .кадр.конфетный .пол.низ{background:
+       radial-gradient(60% 45% at 50% 62%,rgba(255,255,255,.3),rgba(255,255,255,0) 70%),
+       radial-gradient(rgba(255,255,255,.24) .55px,rgba(255,255,255,0) .7px) 0 0/6.4px 6.4px,
+       #2D8CFF!important}
+  .кадр.конфетный .полоса{top:calc(50% - 1.3px);height:2.6px;background:#111;border:0;padding:0;z-index:3;
+       overflow:visible;gap:0}
+  .кадр.конфетный .полоса i{position:absolute;left:20%;right:20%;top:0;height:100%;
+       background:#fff;border-radius:0}
+  .кадр.конфетный .полоса .счёт{position:absolute;left:3px;top:-9px;background:#111;color:#fff;
+       border-radius:9px;padding:0 3px;font-size:4.5px;line-height:1.5}
+  .кадр.конфетный .полоса::after{content:"OR";position:absolute;left:50%;top:50%;width:18px;height:18px;
+       margin:-9px 0 0 -9px;border-radius:50%;background:#fff;border:1.5px solid #111;box-sizing:border-box;
+       display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:900;color:#111}
+  /* Пустое место под картинку — полупрозрачное, а не тёмный прямоугольник. */
+  .кадр.конфетный .снимок{background-color:rgba(255,255,255,.22)}
   /* Подписи в «конфетном» — обычные, как в остальных оформлениях (Вика). */
   .кадр .подпись{color:#fff;font-weight:800;font-size:7.5px;text-align:center;
        line-height:1.05;text-shadow:0 1px 2px rgba(0,0,0,.45);padding:0 4px;max-width:92%}
@@ -140,7 +159,7 @@ window.__ВЕРСИЯ = "2026-10-07-14";
        display:flex;align-items:center;gap:3px;padding:0 3px}
   .кадр .полоса .счёт{color:#F7EFE4;font-size:5px;font-weight:700;flex:0 0 auto;
        background:#2b2019;border-radius:4px;padding:0 3px;line-height:1.4}
-  .кадр .полоса i{flex:1;height:3px;background:#E8B65F;border-radius:2px}
+  .кадр .полоса i{flex:1;height:3px;background:#F7EFE4;border-radius:2px}
   /* Кадр можно открыть крупно — на весь экран, поверх всего. */
   .кадрбокс .кадр{cursor:zoom-in}
   .кадр-полный{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;
@@ -1454,7 +1473,7 @@ const крайКартинки = (эл, край) => {
 let листКадра = 0;
 
 const кадрЭтоИлиТо = (холст, номер = 0) => {
-  const [верх, низ] = ГАММЫ[state.theme] ?? ГАММЫ["розовый-голубой"];
+  const [верх, низ] = ГАММЫ[state.theme] ?? ГАММЫ["конфетный"];
   const всего = (state.rounds || []).length;
   const n = Math.max(0, Math.min(номер, всего - 1));
   const раунд = (state.rounds || [])[n] || { top: "", bottom: "", pct: 55 };
@@ -1769,7 +1788,7 @@ const ПУСТО = () => ({
   hook: "This or that",
   edition: "Fast food Edition",
   // Оформление по умолчанию (Вика): розовый и голубой, без рамки, углы острые.
-  theme: "розовый-голубой",
+  theme: "конфетный",
   edge: "острый",
   mode: "фото",
   shot: "крупный",
@@ -1795,7 +1814,10 @@ for (const r of state.rounds) if (!r.picks) r.picks = {};
 // Кремовой рамки больше нет вовсе (Вика) — у старых черновиков она
 // становится острым краем без рамки.
 if (!state.edge || state.edge === "рамка") state.edge = "острый";
-if (!state.theme) state.theme = "розовый-голубой";
+// «Конфетный» — оформление по умолчанию (Вика). Один раз переводим на него
+// и уже сохранённые черновики; дальше выбор человека не трогаем.
+if (!state.theme || !state.конфетныйПоУмолчанию) state.theme = "конфетный";
+state.конфетныйПоУмолчанию = true;
 // Старая заставка с крупной фразой ушла — надпись сверху теперь «This or that».
 if (!state.hook || state.hook === "IF IT WAS FREE, WHAT WOULD YOU EAT?") state.hook = "This or that";
 if (!state.coverOn) state.coverOn = "да";
@@ -2790,7 +2812,7 @@ const ГАММЫ = {
 };
 
 const рисоватьГамму = () => {
-  const [верх, низ] = ГАММЫ[state.theme] ?? ГАММЫ["розовый-голубой"];
+  const [верх, низ] = ГАММЫ[state.theme] ?? ГАММЫ["конфетный"];
   const полосы = $("гамма-превью").children;
   полосы[0].style.background = верх;
   полосы[1].style.background = низ;
@@ -3690,7 +3712,7 @@ const собратьФайл = async () => {
       план: state.shot,
       озвучка: Boolean(state.voice),
       голос: state.voice || "en-US-GuyNeural",
-      цвета: state.theme || "розовый-голубой",
+      цвета: state.theme || "конфетный",
       край: state.edge || "острый",
     },
   };
@@ -7345,7 +7367,7 @@ $("edition").value = state.edition || "";
 $("mode").value = state.mode || "фото";
 $("shot").value = state.shot || "крупный";
 $("voice").value = state.voice ?? "en-US-GuyNeural";
-$("theme").value = state.theme || "розовый-голубой";
+$("theme").value = state.theme || "конфетный";
 $("edge").value = state.edge || "острый";
 рисоватьГамму();
 $("coverOn").checked = (state.coverOn || "да") === "да";
