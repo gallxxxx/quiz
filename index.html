@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-40";
+window.__ВЕРСИЯ = "2026-10-07-41";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -2333,7 +2333,7 @@ const рисовать = () => {
         '<button type="button" data-вид="белый" title="Предмет на белом фоне — вписывается целиком">' +
           '<span class="значок-фигурка">🍔</span>на белом</button>' +
       '</div>' +
-      '<div class="row"><input type="range" min="20" max="80" value="' + r.pct + '">' +
+      '<div class="row"><input type="range" min="0" max="100" value="' + r.pct + '">' +
       '<div class="pct">' + r.pct + " / " + (100 - r.pct) + "</div></div>";
 
     const top = el.querySelector('input[data-side="top"]');
@@ -3161,6 +3161,14 @@ const какФраза = (т) => {
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
 
+// Проценты — любые от 0 до 100 (Вика). Раньше их зажимали в 20…80,
+// и «%100 / %00» из чужого ролика превращались в 80 / 20.
+const процентИзРазбора = (п) => {
+  if (п == null || п === "") return 50;
+  const n = Math.round(Number(п));
+  return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 50;
+};
+
 const ПРОМПТ_РАЗБОР =
   "Перед тобой листы с кадрами из видео-викторины «This or That» " +
   "(«это или то»). Листы идут по порядку, на каждом листе кадры — слева направо, затем сверху вниз. " +
@@ -3419,7 +3427,7 @@ const применитьРазбор = (st, data) => {
   st.rounds = раунды.map((r) => ({
     top: r.верх,
     bottom: r.низ,
-    pct: r.пв == null ? 50 : Math.max(20, Math.min(80, Math.round(Number(r.пв)) || 50)),
+    pct: процентИзРазбора(r.пв),
     photos: {},
     picks: {},
     ...(r.байт || байтТекст(r.верх) || байтТекст(r.низ) ? { байт: true } : {}),
@@ -3439,7 +3447,7 @@ const заполнитьИзРазбора = (data) => {
 // Пары из разбора — в формат добавки.
 const парыИзРазбора = (data) => (Array.isArray(data.раунды) ? data.раунды : [])
   .map((r) => ({ верх: какФраза(r.верх), низ: какФраза(r.низ),
-    pct: r.процент_верх == null ? 50 : Math.max(20, Math.min(80, Math.round(Number(r.процент_верх)) || 50)),
+    pct: процентИзРазбора(r.процент_верх),
     байт: r.байт === true || r.байт === "true" }))
   .filter((r) => r.верх && r.низ);
 
