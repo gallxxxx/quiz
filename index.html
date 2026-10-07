@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-37";
+window.__ВЕРСИЯ = "2026-10-07-38";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -1909,7 +1909,10 @@ const ПУСТО = () => ({
   shot: "крупный",
   voice: "en-US-GuyNeural",
   introOn: "нет",
-  coverOn: "да",
+  // Заставка по умолчанию ВЫКЛЮЧЕНА (Вика, по разбору залетевшего ролика
+  // конкурента: он сразу начинается с первого вопроса — первые секунды
+  // решают, пролистнут ли).
+  coverOn: "нет",
   // Концовку по умолчанию не показываем: она режет досмотр.
   outroOn: "нет",
   rounds: [
@@ -1935,7 +1938,7 @@ const нормализоватьВыпуск = (st) => {
   st.конфетныйПоУмолчанию = true;
   // Старая заставка с крупной фразой ушла — надпись сверху теперь «This or that».
   if (!st.hook || st.hook === "IF IT WAS FREE, WHAT WOULD YOU EAT?") st.hook = "This or that";
-  if (!st.coverOn) st.coverOn = "да";
+  if (!st.coverOn) st.coverOn = "нет";
   // Мягкий шёпот убран по просьбе Вики — у старых выпусков он становится
   // обычным шёпотом того же голоса, а не пропадает в пустой выбор.
   if (typeof st.voice === "string") st.voice = st.voice.replace("+мягкий шёпот", "+шёпот");
@@ -8454,7 +8457,7 @@ const заполнитьПоля = () => {
   $("theme").value = state.theme || "конфетный";
   $("edge").value = state.edge || "острый";
   рисоватьГамму();
-  $("coverOn").checked = (state.coverOn || "да") === "да";
+  $("coverOn").checked = (state.coverOn || "нет") === "да";
   $("outroOn").checked = (state.outroOn || "нет") === "да";
   const выход = $("промпты-выход");
   if (выход) выход.innerHTML = "";
@@ -8500,7 +8503,7 @@ const новыйРолик = () => {
   const st = нормализоватьВыпуск({
     ...ПУСТО(),
     theme: state.theme, edge: state.edge, voice: state.voice, mode: state.mode,
-    shot: state.shot, coverOn: state.coverOn, outroOn: state.outroOn,
+    shot: state.shot, coverOn: "нет", outroOn: state.outroOn,
     конфетныйПоУмолчанию: true,
     hook: state.hook || "This or that",
     edition: "",
