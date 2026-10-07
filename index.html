@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-15";
+window.__ВЕРСИЯ = "2026-10-07-16";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -154,12 +154,29 @@ window.__ВЕРСИЯ = "2026-10-07-15";
   /* Подписи в «конфетном» — обычные, как в остальных оформлениях (Вика). */
   .кадр .подпись{color:#fff;font-weight:800;font-size:7.5px;text-align:center;
        line-height:1.05;text-shadow:0 1px 2px rgba(0,0,0,.45);padding:0 4px;max-width:92%}
-  .кадр .полоса{position:absolute;left:0;right:0;top:calc(50% - 4px);height:8px;
-       background:#1B1310;border-top:1px solid #F7EFE4;border-bottom:1px solid #F7EFE4;
-       display:flex;align-items:center;gap:3px;padding:0 3px}
-  .кадр .полоса .счёт{color:#F7EFE4;font-size:5px;font-weight:700;flex:0 0 auto;
-       background:#2b2019;border-radius:4px;padding:0 3px;line-height:1.4}
-  .кадр .полоса i{flex:1;height:3px;background:#F7EFE4;border-radius:2px}
+  /* Полоса остальных оформлений — как в ролике (BAR_H 64 из 1920): тёмная,
+     с тонкими светлыми краями, заливка сжимается к середине, слева номер,
+     посередине плашка «OR». */
+  .кадр .полоса{position:absolute;left:0;right:0;top:calc(50% - 3.9px);height:7.8px;box-sizing:border-box;
+       background:var(--чернила,#1B1310);border-top:.7px solid var(--сливки,#F7EFE4);
+       border-bottom:.7px solid var(--сливки,#F7EFE4);overflow:hidden;z-index:3;
+       display:flex;align-items:center;justify-content:center;padding:0;
+       box-shadow:0 0 5px rgba(0,0,0,.45)}
+  .кадр .полоса .счёт{position:absolute;left:3px;top:50%;transform:translateY(-50%);z-index:1;
+       color:var(--сливки,#F7EFE4);font-size:3.7px;font-weight:800;
+       background:var(--чернила,#1B1310);border-radius:9px;padding:0 2.4px;line-height:1.45}
+  .кадр .полоса i{position:absolute;left:30%;right:30%;top:0;bottom:0;background:var(--сливки,#F7EFE4)}
+  .кадр .полоса .или{position:relative;z-index:1;background:var(--чернила,#1B1310);color:var(--сливки,#F7EFE4);
+       font-size:5.6px;font-weight:900;font-style:normal;border-radius:9px;padding:0 2.7px;line-height:1.1}
+  .кадр.конфетный .полоса .или{display:none}
+  /* Объём как в ролике: светлее у картинки, темнее к краям. */
+  .кадр:not(.лист):not(.конфетный) .пол.верх{background-image:
+       radial-gradient(125% 95% at 50% 26%,rgba(255,255,255,.17),rgba(0,0,0,.2) 78%)!important}
+  .кадр:not(.лист):not(.конфетный) .пол.низ{background-image:
+       radial-gradient(125% 95% at 50% 74%,rgba(255,255,255,.17),rgba(0,0,0,.2) 78%)!important}
+  .кадр.конфетный .полоса .счёт{transform:none;top:-9px}
+  /* Пустое место под картинку — светлое, как в «конфетном», а не бурое пятно. */
+  .кадр:not(.лист):not(.конфетный) .снимок{background-color:rgba(255,255,255,.18)}
   /* Кадр можно открыть крупно — на весь экран, поверх всего. */
   .кадрбокс .кадр{cursor:zoom-in}
   .кадр-полный{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;
@@ -408,6 +425,42 @@ window.__ВЕРСИЯ = "2026-10-07-15";
   .lamp.done{background:#6fc08a}
   .lamp.fail{background:#e08b7a}
   @keyframes pulse{50%{opacity:.35}}
+
+  /* Мои ролики */
+  .фильтры-роликов{display:flex;gap:6px;margin:6px 0 10px}
+  .фильтры-роликов button{flex:1;padding:8px 6px;border-radius:999px;border:1px solid var(--line);
+    background:transparent;color:inherit;font:inherit;font-size:14px;cursor:pointer}
+  .фильтры-роликов button.тут{background:var(--gold);color:#1a120e;border-color:var(--gold);font-weight:600}
+  .ролик{display:flex;gap:12px;align-items:stretch;padding:12px;margin:10px 0;border:1px solid var(--line);
+    border-radius:16px;background:rgba(255,255,255,.03);cursor:pointer;position:relative}
+  .ролик.открыт{border-color:var(--gold)}
+  .ролик .миниатюры{display:flex;flex-direction:column;width:58px;flex:0 0 58px;border-radius:10px;overflow:hidden}
+  .ролик .миниатюры div{flex:1;min-height:42px;background-size:cover;background-position:center}
+  .ролик .суть{flex:1;min-width:0}
+  .ролик .имя{font-weight:700;font-size:16px;padding-right:28px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ролик .счёт{color:#8d7a6c;font-size:12px;margin:2px 0 6px}
+  .ролик .этапы{display:flex;gap:4px;margin-bottom:4px}
+  .ролик .этапы i{flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,.12)}
+  .ролик .этапы i.есть{background:var(--gold)}
+  .ролик .этапы i.готов{background:#6fc08a}
+  .ролик .подписи-этапов{display:flex;gap:4px;font-size:10px;color:#8d7a6c;margin-bottom:6px}
+  .ролик .подписи-этапов span{flex:1}
+  .ролик .статус{font-size:13px}
+  .ролик .статус.идёт::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;
+    background:var(--gold);margin-right:6px;animation:pulse 1.1s infinite;vertical-align:middle}
+  .ролик .убрать{position:absolute;top:8px;right:8px;width:28px;height:28px;border-radius:50%;
+    border:0;background:transparent;color:#8d7a6c;font-size:16px;cursor:pointer}
+  .ролик a.качать{display:inline-block;margin-top:6px;color:var(--gold);font-weight:600;font-size:14px}
+  #ролик-выбор{margin-left:auto;max-width:48%;padding:6px 8px;border-radius:10px;font:inherit;font-size:13px;
+    background:transparent;color:inherit;border:1px solid var(--line)}
+  #тост{position:fixed;left:12px;right:12px;bottom:-200px;z-index:1000;max-width:520px;margin:0 auto;
+    background:#2a1d17;color:#fff;border:1px solid var(--gold);border-radius:16px;padding:12px 14px;
+    box-shadow:0 10px 30px rgba(0,0,0,.45);transition:bottom .3s}
+  #тост.виден{bottom:calc(16px + env(safe-area-inset-bottom))}
+  #тост .кнопки-тоста{display:flex;gap:8px;margin-top:10px}
+  #тост button{flex:1;padding:9px;border-radius:10px;border:0;font:inherit;font-weight:600;cursor:pointer}
+  #тост .открыть-тост{background:var(--gold);color:#1a120e}
+  #тост .позже-тост{background:rgba(255,255,255,.12);color:#fff}
 </style>
 </head>
 <body>
@@ -416,8 +469,9 @@ window.__ВЕРСИЯ = "2026-10-07-15";
   <!-- Полоса шагов и сообщения — общие на все экраны: так человек видит
        их на одном и том же месте, а не ищет каждый раз заново. -->
   <div class="шапка hide" id="шапка">
-    <button type="button" id="домой">☰ Все викторины</button>
+    <button type="button" id="домой">‹ Мои ролики</button>
     <span class="где" id="шапка-где"></span>
+    <select id="ролик-выбор" class="hide" aria-label="Другой ролик"></select>
   </div>
   <div class="шаги hide" id="полоса-шагов"></div>
   <div id="вести"></div>
@@ -427,13 +481,18 @@ window.__ВЕРСИЯ = "2026-10-07-15";
     <h1>Викторины</h1>
     <div class="muted">Собери выпуск с телефона — от вопросов до готового ролика.</div>
 
-    <div class="card pick" data-quiz="this-or-that">
-      <div class="dot"></div>
-      <div>
-        <div><b>Это или то</b></div>
-        <div class="muted">Экран пополам, два ответа, таймер и проценты</div>
-      </div>
+    <!-- Мои ролики «Это или то»: несколько выпусков сразу, каждый на своём
+         шаге. Пока один собирается, можно делать следующий. -->
+    <h2>Мои ролики · Это или то</h2>
+    <div class="фильтры-роликов" id="фильтры-роликов">
+      <button type="button" data-ф="все" class="тут">Все</button>
+      <button type="button" data-ф="работа">В работе</button>
+      <button type="button" data-ф="готовые">Готовые</button>
     </div>
+    <button class="big" id="новый-ролик">＋ Новый ролик</button>
+    <div id="мои-ролики"></div>
+
+    <h2>Другие викторины</h2>
 
     <div class="card pick" data-quiz="quiz10">
       <div class="dot"></div>
@@ -566,7 +625,7 @@ window.__ВЕРСИЯ = "2026-10-07-15";
       <div class="muted" id="voice-весть" style="margin-top:6px"></div>
     </div>
 
-    <button class="big ghost" id="новый-на-тех-же">Новый выпуск на этих настройках</button>
+    <button class="big ghost" id="новый-на-тех-же">＋ Новый ролик на этих настройках</button>
     <button class="big ghost" id="back">← к списку викторин</button>
   </div>
 
@@ -1267,7 +1326,8 @@ const черновикиИзФайла = () => {
 // Собрала выпуск про еду, хочет про десерты: подписи другие, а цвета,
 // голос, план съёмки и режим картинок — те же. Раньше это значило стереть
 // восемнадцать подписей руками.
-const новыйНаТехЖе = () => {
+const новыйНаТехЖе = () => новыйРолик();
+const стараяОчистка = () => {
   const сколько = (state.rounds || []).length || 9;
   state.rounds = Array.from({ length: сколько }, () => ({
     top: "", bottom: "", pct: 55, picks: {}, photos: {},
@@ -1472,6 +1532,13 @@ const крайКартинки = (эл, край) => {
 // на экране вопросов всегда первый.
 let листКадра = 0;
 
+// Тёмный и светлый цвета полосы — из THEMES (src/thisorthat-data.ts).
+const ЧЕРНИЛА = {
+  "терракота": ["#1B1310", "#F7EFE4"],
+  "красный-синий": ["#14121C", "#F7F1EA"],
+  "розовый-голубой": ["#171320", "#FBF2F2"],
+};
+
 const кадрЭтоИлиТо = (холст, номер = 0) => {
   const [верх, низ] = ГАММЫ[state.theme] ?? ГАММЫ["конфетный"];
   const всего = (state.rounds || []).length;
@@ -1502,12 +1569,15 @@ const кадрЭтоИлиТо = (холст, номер = 0) => {
         ? '<span class="номер">' + (n + 1) + " / " + всего + "</span>"
           + '<div class="кружок">OR</div>'
         : '<div class="полоса"><span class="счёт">' + (n + 1) + " / " + всего
-          + '</span><i></i></div>')
+          + '</span><i></i><b class="или">OR</b></div>')
     + '<div class="пол низ"><div class="снимок"></div><div class="подпись"></div></div>';
   const половины = холст.querySelectorAll(".пол");
   // На листе половины не красятся: он один на весь кадр и задан в CSS.
   половины[0].style.background = лист ? "transparent" : верх;
   половины[1].style.background = лист ? "transparent" : низ;
+  const [чернила, сливки] = ЧЕРНИЛА[state.theme] || ЧЕРНИЛА["терракота"];
+  холст.style.setProperty("--чернила", чернила);
+  холст.style.setProperty("--сливки", сливки);
   const подписи = холст.querySelectorAll(".подпись");
   // Подпись НЕ обрезаем: в готовом ролике текст показан целиком (переносом),
   // и предпросмотр должен показывать так же. Перенос делает сам CSS.
@@ -1622,7 +1692,7 @@ const подписатьЛист = (где, всего) => {
   if (!r) { строка.textContent = ""; return; }
 
   const про = (side) => {
-    if (свои[листКадра + "-" + side]) return "своё видео";
+    if (свои[state.ид + ":" + листКадра + "-" + side]) return "своё видео";
     if (r.photos && r.photos[side]) return "своё фото";
     if (r.picks && r.picks[side]) return "выбрана";
     return "подберётся вслепую";
@@ -1721,7 +1791,30 @@ const нарисоватьШаги = (экран) => {
   if (шапка) {
     шапка.classList.toggle("hide", экран === "menu");
     const где = document.getElementById("шапка-где");
-    if (где) где.textContent = формат ? ИМЯ_ФОРМАТА[формат] || "" : "";
+    if (где) где.textContent = формат === "это-или-то"
+      ? "" : формат ? ИМЯ_ФОРМАТА[формат] || "" : "";
+    const выбор = document.getElementById("ролик-выбор");
+    const домой = document.getElementById("домой");
+    if (домой) домой.textContent = формат === "это-или-то" ? "‹ Мои ролики" : "☰ Все викторины";
+    if (выбор) {
+      выбор.classList.toggle("hide", формат !== "это-или-то");
+      if (формат === "это-или-то") {
+        выбор.innerHTML = "";
+        const есть = ролики.some((с) => с.ид === state.ид) ? ролики : [сводкаРолика(state), ...ролики];
+        for (const с of есть) {
+          const o = document.createElement("option");
+          o.value = с.ид;
+          o.textContent = (с.ид === state.ид ? (state.edition || "").trim() || "Без темы" : с.имя || "Без темы")
+            + (задачи[с.ид] ? " ⏳" : с.готов ? " ✓" : "");
+          if (с.ид === state.ид) o.selected = true;
+          выбор.appendChild(o);
+        }
+        const нов = document.createElement("option");
+        нов.value = "+";
+        нов.textContent = "＋ Новый ролик";
+        выбор.appendChild(нов);
+      }
+    }
   }
   полоса.classList.toggle("hide", !формат);
   if (!формат) return;
@@ -1804,26 +1897,137 @@ const ПУСТО = () => ({
   ],
 });
 
+// Выпуск «Это или то» приводим к нынешнему виду — и тот, что открыт,
+// и любой, что достаём из списка роликов (они могли быть начаты давно).
+const нормализоватьВыпуск = (st) => {
+  st = { ...ПУСТО(), ...st };
+  st.rounds = Array.isArray(st.rounds) ? st.rounds : [];
+  // У выпусков, собранных до появления проверки картинок, поля picks нет.
+  for (const r of st.rounds) { if (!r.picks) r.picks = {}; if (!r.photos) r.photos = {}; }
+  // Кремовой рамки больше нет вовсе (Вика) — у старых черновиков она
+  // становится острым краем без рамки.
+  if (!st.edge || st.edge === "рамка") st.edge = "острый";
+  // «Конфетный» — оформление по умолчанию (Вика). Один раз переводим на него
+  // и уже сохранённые черновики; дальше выбор человека не трогаем.
+  if (!st.theme || !st.конфетныйПоУмолчанию) st.theme = "конфетный";
+  st.конфетныйПоУмолчанию = true;
+  // Старая заставка с крупной фразой ушла — надпись сверху теперь «This or that».
+  if (!st.hook || st.hook === "IF IT WAS FREE, WHAT WOULD YOU EAT?") st.hook = "This or that";
+  if (!st.coverOn) st.coverOn = "да";
+  // Мягкий шёпот убран по просьбе Вики — у старых выпусков он становится
+  // обычным шёпотом того же голоса, а не пропадает в пустой выбор.
+  if (typeof st.voice === "string") st.voice = st.voice.replace("+мягкий шёпот", "+шёпот");
+  // У каждого ролика свой номер — по нему его находят список, сборки,
+  // промпты и разбор видео, даже если человек ушёл в другой ролик.
+  if (!st.ид) st.ид = новыйИд();
+  if (!st.создан) st.создан = Date.now();
+  return st;
+};
+const новыйИд = () => "р" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
 let state = ПУСТО();
 try {
   const was = localStorage.getItem(KEY);
-  if (was) state = { ...ПУСТО(), ...JSON.parse(was) };
+  if (was) state = JSON.parse(was);
 } catch {}
-// У выпусков, собранных до появления проверки картинок, поля picks нет.
-for (const r of state.rounds) if (!r.picks) r.picks = {};
-// Кремовой рамки больше нет вовсе (Вика) — у старых черновиков она
-// становится острым краем без рамки.
-if (!state.edge || state.edge === "рамка") state.edge = "острый";
-// «Конфетный» — оформление по умолчанию (Вика). Один раз переводим на него
-// и уже сохранённые черновики; дальше выбор человека не трогаем.
-if (!state.theme || !state.конфетныйПоУмолчанию) state.theme = "конфетный";
-state.конфетныйПоУмолчанию = true;
-// Старая заставка с крупной фразой ушла — надпись сверху теперь «This or that».
-if (!state.hook || state.hook === "IF IT WAS FREE, WHAT WOULD YOU EAT?") state.hook = "This or that";
-if (!state.coverOn) state.coverOn = "да";
-// Мягкий шёпот убран по просьбе Вики — у старых выпусков он становится
-// обычным шёпотом того же голоса, а не пропадает в пустой выбор.
-if (typeof state.voice === "string") state.voice = state.voice.replace("+мягкий шёпот", "+шёпот");
+state = нормализоватьВыпуск(state);
+
+// ══════════════════════════════════════════════════════════
+//  МОИ РОЛИКИ — несколько выпусков «Это или то» одновременно
+// ══════════════════════════════════════════════════════════
+// Вика: «хочу собирать сразу много роликов: пока в первом нейросеть
+// разбирает видео или пишет промпты, делать второй — и чтобы первый не
+// сбросился и его было где найти. И вернуться в готовый, поменять картинки».
+//
+// Как устроено:
+//   • открытый ролик — это по-прежнему «state» (и KEY в localStorage);
+//   • список роликов — короткие сводки для карточек (KEY_РОЛИКИ);
+//   • полная копия каждого ролика лежит в базе телефона (IndexedDB) под
+//     ключом «ролик:<ид>» — там места сотни мегабайт, своих фото хватит;
+//   • долгие дела (промпты, разбор видео, сборка) помнят ид своего ролика
+//     и кладут результат туда, даже если человек уже в другом.
+const KEY_РОЛИКИ = "викторина-ролики";
+let ролики = [];
+let первыйРазСРоликами = false;
+try { первыйРазСРоликами = localStorage.getItem(KEY_РОЛИКИ) == null; } catch {}
+try {
+  const было = JSON.parse(localStorage.getItem(KEY_РОЛИКИ) || "null");
+  if (Array.isArray(было)) ролики = было.filter((с) => с && с.ид);
+} catch {}
+const задачи = {};          // ид ролика → что с ним сейчас делается в фоне
+const запасРоликов = new Map(); // если базы телефона нет (старый браузер) — в памяти
+
+const сводкаРолика = (st) => {
+  const вопросы = (st.rounds || []).filter((r) => (r.top || "").trim() || (r.bottom || "").trim());
+  const мест = вопросы.length * 2;
+  let выбрано = 0;
+  const превью = [];
+  for (const r of вопросы) {
+    for (const side of ["top", "bottom"]) {
+      const в = r.picks && r.picks[side];
+      const своё = r.photos && r.photos[side];
+      if (в || своё) выбрано += 1;
+      if (в && (в.показ || в.ссылка) && превью.length < 2) превью.push(в.показ || в.ссылка);
+    }
+  }
+  const было = ролики.find((с) => с.ид === st.ид) || {};
+  return {
+    ...было,
+    ид: st.ид,
+    имя: (st.edition || "").trim() || "Без темы",
+    этап: st.этап || "editor",
+    создан: st.создан || было.создан || Date.now(),
+    изменён: Date.now(),
+    всего: (st.rounds || []).length,
+    заполнено: вопросы.length,
+    мест,
+    выбрано,
+    превью,
+    тема: st.theme || "конфетный",
+  };
+};
+const запомнитьРолики = () => {
+  try { localStorage.setItem(KEY_РОЛИКИ, JSON.stringify(ролики)); } catch {}
+};
+const обновитьСводку = (st) => {
+  const с = сводкаРолика(st);
+  const i = ролики.findIndex((x) => x.ид === st.ид);
+  if (i >= 0) ролики[i] = с; else ролики.unshift(с);
+  запомнитьРолики();
+};
+const положитьРолик = async (st) => {
+  const текст = JSON.stringify(st);
+  запасРоликов.set(st.ид, текст);
+  try { await фотоПоложить("ролик:" + st.ид, текст); } catch { /* останется в памяти */ }
+};
+const взятьРолик = async (ид) => {
+  if (ид === state.ид) return state;
+  let текст = null;
+  try { текст = await фотоВзять("ролик:" + ид); } catch { /* базы нет */ }
+  if (!текст) текст = запасРоликов.get(ид) || null;
+  return текст ? нормализоватьВыпуск(JSON.parse(текст)) : null;
+};
+// Копию открытого ролика в базу кладём не на каждую букву, а раз в секунду.
+let копияТаймер = null;
+const отложитьКопию = () => {
+  clearTimeout(копияТаймер);
+  копияТаймер = setTimeout(() => { положитьРолик(state).catch(() => {}); }, 800);
+};
+const сохранитьСейчас = async () => {
+  clearTimeout(копияТаймер);
+  обновитьСводку(state);
+  await положитьРолик(state);
+};
+// Открытый ролик всегда есть в списке — и прежний черновик тоже.
+обновитьСводку(state);
+
+// Шаг, на котором ролик остановился: карточка открывает его там же.
+const отметитьЭтап = (что) => {
+  if (state.этап === что) return;
+  // Готовый ролик не «откатываем» назад в списке, пока его правят.
+  state.этап = что;
+  сохранить();
+};
 
 let доступ = { pexels: "", токен: "", нейро: "", пароль: "" };
 try {
@@ -1865,6 +2069,10 @@ const нейроДоступ = () => {
 
 const сохранить = () => {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+  // Открытый ролик живёт и в общем списке: сводка для карточки сразу,
+  // полная копия в базе телефона — чуть погодя, одной записью.
+  обновитьСводку(state);
+  отложитьКопию();
 };
 const сохранитьДоступ = () => {
   try { localStorage.setItem(KEY_НАСТРОЙКИ, JSON.stringify(доступ)); } catch {}
@@ -2139,7 +2347,8 @@ $("file").addEventListener("change", async () => {
   const file = $("file").files[0];
   if (!file || !ждёт) return;
   const куда = ждёт;
-  const ключ = куда.round + "-" + куда.side;
+  // Ключ — с номером ролика: свои видео и найденные варианты у каждого ролика свои.
+  const ключ = state.ид + ":" + куда.round + "-" + куда.side;
 
   try {
     const r = раунд(куда.round);
@@ -2407,50 +2616,25 @@ const промптыОтНейросети = async (пункты, пишем = (
   throw new Error(последняя);
 };
 
-$("кнопка-промпты").addEventListener("click", безопасно("промпты для картинок", async () => {
+// Промпты хранятся В РОЛИКЕ: ушла в другой ролик, пока нейросеть думает —
+// результат ляжет в свой ролик, а не в тот, что открыт сейчас.
+const рисоватьПромпты = (п) => {
   const выход = $("промпты-выход");
   выход.innerHTML = "";
-
-  const пункты = [];
-  // Обложка: две картинки на тему выпуска, тоже через нейросеть.
-  if (обложкаВкл()) {
-    const вид = state.theme === "белое" ? "белый" : "16:9";
-    пункты.push({ label: "ОБЛОЖКА сверху — " + темаОбложки(), вид });
-    пункты.push({ label: "ОБЛОЖКА снизу — " + темаОбложки(), вид });
-  }
-  (state.rounds || []).forEach((r) => {
-    if ((r.top || "").trim()) пункты.push({ label: r.top.trim(), вид: видВопроса(r) });
-    if ((r.bottom || "").trim()) пункты.push({ label: r.bottom.trim(), вид: видВопроса(r) });
-  });
-
-  if (!пункты.length) {
-    const d = document.createElement("div");
-    d.className = "muted";
-    d.textContent = "Сначала впиши пары выше — тогда сделаю промпты.";
-    выход.appendChild(d);
-    return;
-  }
-
-  выход.textContent = "Выбираю нейросеть…";
-
-  let карта = null, модель = "";
-  try {
-    ({ карта, модель } = await промптыОтНейросети(пункты, (т) => { выход.textContent = т; }));
-  } catch (e) { карта = null; }
-
-  выход.innerHTML = "";
+  if (!п || !п.пункты) return;
+  const карта = п.карта ? new Map(п.карта) : null;
   const инфо = document.createElement("div");
   инфо.className = "muted";
   инфо.style.margin = "8px 0";
-  инфо.textContent = (карта
-    ? "Нейросеть: " + имяНейросети(модель) + ".\n"
+  инфо.textContent = (карта && карта.size
+    ? "Нейросеть: " + имяНейросети(п.модель) + ".\n"
       + "Промпты продуманы под каждое: много штук в кадре, всё целиком, соусы только где уместно. Скопируй, вставь в свою нейросеть, сгенери на белом фоне и добавь кнопкой «своё фото»."
     : "Нейросеть: не ответила ни одна — промпты сделаны по простому шаблону, без нейросети.\n"
       + "Можешь нажать ещё раз через минуту. Скопируй, вставь в свою нейросеть, добавь кнопкой «своё фото».");
   инфо.style.whiteSpace = "pre-line";
   выход.appendChild(инфо);
 
-  пункты.forEach(({ label, вид }, i) => {
+  п.пункты.forEach(({ label, вид }, i) => {
     const текст = (карта && карта.get(label.toLowerCase())) || промптКартинки(label, i, вид);
     const card = document.createElement("div");
     card.className = "card";
@@ -2474,6 +2658,53 @@ $("кнопка-промпты").addEventListener("click", безопасно("�
 
     выход.appendChild(card);
   });
+};
+
+$("кнопка-промпты").addEventListener("click", безопасно("промпты для картинок", async () => {
+  const выход = $("промпты-выход");
+  выход.innerHTML = "";
+  const ид = state.ид;
+  const имяР = сводкаРолика(state).имя;
+
+  const пункты = [];
+  // Обложка: две картинки на тему выпуска, тоже через нейросеть.
+  if (обложкаВкл()) {
+    const вид = state.theme === "белое" ? "белый" : "16:9";
+    пункты.push({ label: "ОБЛОЖКА сверху — " + темаОбложки(), вид });
+    пункты.push({ label: "ОБЛОЖКА снизу — " + темаОбложки(), вид });
+  }
+  (state.rounds || []).forEach((r) => {
+    if ((r.top || "").trim()) пункты.push({ label: r.top.trim(), вид: видВопроса(r) });
+    if ((r.bottom || "").trim()) пункты.push({ label: r.bottom.trim(), вид: видВопроса(r) });
+  });
+
+  if (!пункты.length) {
+    const d = document.createElement("div");
+    d.className = "muted";
+    d.textContent = "Сначала впиши пары выше — тогда сделаю промпты.";
+    выход.appendChild(d);
+    return;
+  }
+
+  // Статус пишем, только пока открыт ЭТОТ ролик.
+  const пиши = (т) => {
+    задачи[ид] = т;
+    if (state.ид === ид) выход.textContent = т;
+    рисоватьРолики();
+  };
+  пиши("Выбираю нейросеть…");
+
+  let карта = null, модель = "";
+  try {
+    ({ карта, модель } = await промптыОтНейросети(пункты, пиши));
+  } catch (e) { карта = null; }
+  delete задачи[ид];
+
+  const итог = { пункты, карта: карта ? [...карта.entries()] : null, модель, когда: Date.now() };
+  const здесь = await вРолик(ид, (st) => { st.промпты = итог; });
+  if (здесь) рисоватьПромпты(итог);
+  else тост("✨ " + имяР + ": промпты готовы", ид, "editor");
+  рисоватьРолики();
 }));
 
 // ——————————————————————————————————————————————————————————
@@ -2639,21 +2870,25 @@ const разборНейросетью = async (листDataUrl, статус) =
   throw new Error(последняя);
 };
 
-const заполнитьИзРазбора = (data) => {
+const применитьРазбор = (st, data) => {
   const сырые = Array.isArray(data.раунды) ? data.раунды : [];
   const раунды = сырые
     .map((r) => ({ верх: String(r.верх || "").trim(), низ: String(r.низ || "").trim(), пв: r.процент_верх }))
     .filter((r) => r.верх && r.низ);
   if (!раунды.length) throw new Error("в ролике не нашлось пар «одно или другое»");
-  state.rounds = раунды.map((r) => ({
+  st.rounds = раунды.map((r) => ({
     top: r.верх,
     bottom: r.низ,
     pct: r.пв == null ? 50 : Math.max(20, Math.min(80, Math.round(Number(r.пв)) || 50)),
     photos: {},
     picks: {},
   }));
-  if (data.тема) state.edition = String(data.тема).trim();
+  if (data.тема) st.edition = String(data.тема).trim();
   // Надпись сверху — всегда «This or that»; крючок чужого ролика её не затирает.
+};
+
+const заполнитьИзРазбора = (data) => {
+  применитьРазбор(state, data);
   сохранить();
   рисовать();
   if ($("hook")) $("hook").value = state.hook || "";
@@ -2665,7 +2900,14 @@ $("файл-ролик").addEventListener("change", безопасно("разб
   const file = e.target.files && e.target.files[0];
   e.target.value = "";
   if (!file) return;
-  const пиши = (t) => { const s = $("ролик-статус"); if (s) s.textContent = t; };
+  // Разбор привязан к ролику, в котором его начали.
+  const ид = state.ид;
+  const имяР = () => сводкаРолика(state.ид === ид ? state : (ролики.find((р) => р.ид === ид) || {})).имя;
+  const пиши = (t, конец) => {
+    if (конец) delete задачи[ид]; else задачи[ид] = t;
+    if (state.ид === ид) { const s = $("ролик-статус"); if (s) s.textContent = t; }
+    рисоватьРолики();
+  };
   try {
     пиши("Читаю кадры из ролика…");
     const { кадры, cw, ch } = await кадрыИзРолика(file, РАЗБОР_КАДРОВ);
@@ -2673,13 +2915,16 @@ $("файл-ролик").addEventListener("change", безопасно("разб
     пиши("Отправляю кадры нейросети, жду пары…");
     const лист = await листИзКадров(кадры, cw, ch);
     const data = await разборНейросетью(лист, пиши);
-    заполнитьИзРазбора(data);
+    let здесь;
+    if (state.ид === ид) { заполнитьИзРазбора(data); здесь = true; }
+    else здесь = await вРолик(ид, (st) => применитьРазбор(st, data));
     const рус = String(data.язык || "").toLowerCase() === "ru";
     пиши("Готово: пары в «Вопросах»" + (рус ? " (перевела с русского)" : "") +
-      ". Проверь их, потом подбери картинки.\nНейросеть: " + имяНейросети(data.нейросеть) + ".");
+      ". Проверь их, потом подбери картинки.\nНейросеть: " + имяНейросети(data.нейросеть) + ".", true);
+    if (!здесь) тост("🎬 " + имяР() + ": пары из ролика готовы", ид, "editor");
   } catch (err) {
     пиши("Не вышло: " + (err && err.message ? err.message : err) +
-      ". Ни одна нейросеть не справилась — попробуй ещё раз через минуту.");
+      ". Ни одна нейросеть не справилась — попробуй ещё раз через минуту.", true);
   }
 }));
 
@@ -2829,6 +3074,10 @@ for (const id of ["hook", "edition", "mode", "shot", "voice", "theme", "edge"]) 
   $(id).addEventListener("input", () => {
     state[id] = $(id).value;
     if (id === "theme") рисоватьГамму();
+    if (id === "edition") {
+      const о = document.querySelector('#ролик-выбор option[value="' + state.ид + '"]');
+      if (о) о.textContent = state.edition.trim() || "Без темы";
+    }
     рисоватьКадр("editor");
     сохранить();
   });
@@ -3337,7 +3586,7 @@ const рисоватьСлоты = () => {
 
   всё.forEach((м) => {
     const r = раунд(м.round);
-    const ключ = м.round + "-" + м.side;
+    const ключ = state.ид + ":" + м.round + "-" + м.side;
     const своё = r.photos?.[м.side];
     const выбор = r.picks?.[м.side];
 
@@ -3620,7 +3869,7 @@ const рисоватьСлоты = () => {
 // Что человек положил сам: фотография из черновика или видео из памяти.
 // Имя важно: по расширению приёмник понимает, картинка это или ролик.
 const своёДля = (r, i, side) => {
-  const видео = свои[i + "-" + side];
+  const видео = свои[state.ид + ":" + i + "-" + side];
   if (видео) return { имя: видео.имя, данные: видео.данные };
   const фото = r.photos?.[side];
   if (фото) return { имя: (side === "top" ? "сверху" : "снизу") + ".jpg", данные: фото };
@@ -3905,6 +4154,20 @@ try {
   }
 } catch {}
 
+// Первый заход с «Моими роликами»: прежние сборки — сборки прежнего
+// черновика, он стал первым роликом. Ничего не теряется.
+if (первыйРазСРоликами) {
+  for (const р of работы) {
+    if (!р.роликИд) р.роликИд = state.ид;
+    if (р.конец) р.сказано = true;
+  }
+  const готовая = работы.find((р) => р.роликИд === state.ид && р.ссылка);
+  const с = ролики.find((x) => x.ид === state.ид);
+  if (готовая && с) с.готов = { ссылка: готовая.ссылка, сырая: готовая.сырая, вес: готовая.вес, когда: готовая.начало };
+  try { localStorage.setItem(KEY_РАБОТЫ, JSON.stringify(работы)); } catch {}
+  запомнитьРолики();
+}
+
 const запомнитьРаботы = () => {
   // Семь последних — так решили. Список живёт в памяти ЭТОГО телефона,
   // поэтому каждый видит только свои сборки: Вика свои, подруга свои.
@@ -3977,25 +4240,50 @@ const кнопкаПереименовать = (р, перерисовать) =>
   return b;
 };
 
+// Сборка ролика закончилась: помним ссылку в самом ролике (карточка
+// «Готов»), а если человек сейчас в другом ролике — всплывает «готово».
+const отметитьСобранные = () => {
+  let было = false;
+  for (const р of работы) {
+    if (!р.роликИд || р.сказано || !р.конец) continue;
+    р.сказано = true;
+    было = true;
+    const с = ролики.find((x) => x.ид === р.роликИд);
+    if (!с) continue;
+    if (р.ссылка) {
+      с.готов = { ссылка: р.ссылка, сырая: р.сырая, вес: р.вес, когда: Date.now() };
+      с.этап = "build";
+      if (р.роликИд === state.ид) state.этап = "build";
+      if (р.роликИд !== state.ид) тост("🎬 " + с.имя + ": ролик собран", р.роликИд, "build");
+    } else if (р.роликИд !== state.ид) {
+      тост("⚠️ " + с.имя + ": сборка не вышла", р.роликИд, "build");
+    }
+  }
+  if (было) { запомнитьРаботы(); запомнитьРолики(); }
+};
+
 const рисоватьСборки = () => {
   const box = $("сборки");
   box.innerHTML = "";
+  отметитьСобранные();
+  // На шаге «Сборка» — только сборки ОТКРЫТОГО ролика.
+  const свои = работы.filter((р) => р.роликИд === state.ид);
 
-  if (!работы.length) {
+  if (!свои.length) {
     лампа("", "Готов начать");
     рисоватьГлавную();
     return;
   }
 
-  const идут = работы.filter((р) => !р.конец).length;
+  const идут = свои.filter((р) => !р.конец).length;
   // «Всё собрано» поверх неудачной отправки — то же враньё, что и молчащая
   // кнопка: человек уходит довольным, а ролика нет. Считаем осечки отдельно.
-  const осечки = работы.filter((р) => р.конец && р.конец !== "success" && !р.ссылка).length;
+  const осечки = свои.filter((р) => р.конец && р.конец !== "success" && !р.ссылка).length;
   if (идут) лампа("go", идут === 1 ? "Собираю ролик…" : "Собираю ролики: " + идут);
   else if (осечки) лампа("fail", осечки === 1 ? "Одна сборка не вышла" : "Не вышло сборок: " + осечки);
   else лампа("done", "Всё собрано");
 
-  for (const р of работы) {
+  for (const р of свои) {
     const el = document.createElement("div");
     el.className = "работа";
 
@@ -4357,6 +4645,7 @@ const кнопкаУбратьСборку = (р, перерисовать) => {
 };
 
 const отправить = async () => {
+  const роликИд = state.ид;
   const выпуск = await собратьФайл();
   if (!выпуск.вопросы.filter((q) => !q.обложка).length) {
     сказать("Ни одного вопроса не заполнено.");
@@ -4396,6 +4685,7 @@ const отправить = async () => {
   } catch (e) {
     лампа("fail", "Отправить не вышло");
     работы.unshift({
+      роликИд,
       коммит: "нет-" + Date.now(),
       начало: Date.now(),
       тема: выпуск.заставка.тема || "без темы",
@@ -4420,6 +4710,7 @@ const отправить = async () => {
   }
 
   работы.unshift({
+    роликИд,
     коммит,
     начало: Date.now(),
     тема: выпуск.заставка.тема || "без темы",
@@ -4907,8 +5198,9 @@ const тотСловами = (р) => {
 const всеРаботы = () => {
   const список = [];
   for (const р of работы) {
+    if (р.роликИд) continue; // эти — на карточках «Моих роликов»
     список.push({
-      формат: "Это или то",
+      формат: "Это или то · старая сборка",
       запись: р,
       когда: р.начало || 0,
       словами: тотСловами(р),
@@ -4937,7 +5229,117 @@ const всеРаботы = () => {
   return список;
 };
 
+// ——— Мои ролики ———
+let фильтрРоликов = "все";
+const ЭТАПЫ_РОЛИКА = ["Вопросы", "Картинки", "Сборка", "Готово"];
+
+// Что сейчас с роликом — одной строкой и номером шага (0…3).
+const состояниеРолика = (с) => {
+  const сборки = работы.filter((р) => р.роликИд === с.ид);
+  const последняя = сборки[0];
+  const фон = задачи[с.ид];
+  if (последняя && !последняя.конец) {
+    const к = ПО_РУССКИ[последняя.состояние] ?? "";
+    return { шаг: 2, идёт: true, текст: "Собирается" + (к ? " · " + к : "…") };
+  }
+  if (фон) return { шаг: с.этап === "picts" ? 1 : 0, идёт: true, текст: фон };
+  if (с.готов && с.готов.ссылка) {
+    return { шаг: 3, готов: true, текст: "Готов · посмотреть, скачать или поправить" };
+  }
+  if (последняя && последняя.конец && !последняя.ссылка) {
+    return { шаг: 2, текст: "Сборка не вышла — открой и собери ещё раз" };
+  }
+  if (с.этап === "build") return { шаг: 2, текст: "Можно собирать" };
+  if (с.этап === "picts") {
+    return { шаг: 1, текст: "Картинки: выбрано " + (с.выбрано || 0) + " из " + (с.мест || 0) };
+  }
+  return { шаг: 0, текст: с.заполнено
+    ? "Вопросы: заполнено " + с.заполнено + " из " + (с.всего || с.заполнено)
+    : "Пока пусто — впиши вопросы или разбери ролик из TikTok" };
+};
+
+const рисоватьРолики = () => {
+  const где = document.getElementById("мои-ролики");
+  if (!где) return;
+  где.innerHTML = "";
+  const все = [...ролики].sort((а, б) => (б.изменён || б.создан || 0) - (а.изменён || а.создан || 0));
+  const список = все.filter((с) => {
+    const о = состояниеРолика(с);
+    if (фильтрРоликов === "готовые") return о.готов;
+    if (фильтрРоликов === "работа") return !о.готов;
+    return true;
+  });
+  document.querySelectorAll("#фильтры-роликов button").forEach((b) =>
+    b.classList.toggle("тут", b.dataset.ф === фильтрРоликов));
+  if (!список.length) {
+    const d = document.createElement("div");
+    d.className = "muted";
+    d.textContent = фильтрРоликов === "готовые" ? "Готовых роликов пока нет."
+      : фильтрРоликов === "работа" ? "Всё собрано — в работе ничего." : "Роликов пока нет.";
+    где.appendChild(d);
+    return;
+  }
+  for (const с of список) {
+    const о = состояниеРолика(с);
+    const el = document.createElement("div");
+    el.className = "ролик" + (с.ид === state.ид ? " открыт" : "");
+    const мини = document.createElement("div");
+    мини.className = "миниатюры";
+    const гамма = ГАММЫ[с.тема] || ГАММЫ["конфетный"];
+    for (let i = 0; i < 2; i++) {
+      const d = document.createElement("div");
+      const u = (с.превью || [])[i];
+      if (u) d.style.backgroundImage = 'url("' + String(u).replace(/"/g, "%22") + '")';
+      else d.style.background = гамма[i];
+      мини.appendChild(d);
+    }
+    el.appendChild(мини);
+
+    const суть = document.createElement("div");
+    суть.className = "суть";
+    суть.innerHTML = '<div class="имя"></div><div class="счёт"></div><div class="этапы"></div>'
+      + '<div class="подписи-этапов"></div><div class="статус"></div>';
+    суть.querySelector(".имя").textContent = с.имя || "Без темы";
+    суть.querySelector(".счёт").textContent = (с.заполнено || 0) + " вопр. · картинок "
+      + (с.выбрано || 0) + "/" + (с.мест || 0);
+    ЭТАПЫ_РОЛИКА.forEach((имя, i) => {
+      const полоска = document.createElement("i");
+      if (о.готов) полоска.className = "готов";
+      else if (i <= о.шаг) полоска.className = "есть";
+      суть.querySelector(".этапы").appendChild(полоска);
+      const п = document.createElement("span");
+      п.textContent = имя;
+      суть.querySelector(".подписи-этапов").appendChild(п);
+    });
+    const ст = суть.querySelector(".статус");
+    ст.textContent = о.текст;
+    if (о.идёт) ст.classList.add("идёт");
+    if (о.готов && с.готов.ссылка) {
+      const a = document.createElement("a");
+      a.className = "качать";
+      a.href = с.готов.ссылка;
+      a.textContent = "Скачать" + (с.готов.вес ? " · " + с.готов.вес : "");
+      a.addEventListener("click", (e) => e.stopPropagation());
+      суть.appendChild(a);
+    }
+    el.appendChild(суть);
+
+    const х = document.createElement("button");
+    х.type = "button";
+    х.className = "убрать";
+    х.textContent = "✕";
+    х.title = "Убрать ролик";
+    х.addEventListener("click", безопасно("убрать ролик", (e) => { e.stopPropagation(); return убратьРолик(с.ид); }));
+    el.appendChild(х);
+
+    el.addEventListener("click", безопасно("открыть ролик",
+      () => открытьРолик(с.ид, о.готов ? "build" : (с.этап || "editor"))));
+    где.appendChild(el);
+  }
+};
+
 const рисоватьГлавную = () => {
+  рисоватьРолики();
   const где = $("все-работы");
   if (!где) return;
   где.innerHTML = "";
@@ -4946,7 +5348,7 @@ const рисоватьГлавную = () => {
 
   const идут = список.filter((x) => x.идёт).length;
   const шапка = document.createElement("h2");
-  шапка.textContent = "Ролики";
+  шапка.textContent = "Другие ролики";
   где.appendChild(шапка);
 
   const подпись = document.createElement("div");
@@ -7174,14 +7576,17 @@ const открытьЭкран = (что) => {
   if (что !== "menu") хватитСледитьНаГлавной();
 
   if (что === "menu") {
+    панель([]);
     // Список работ всех трёх викторин. «Это или то» обновляет общая
     // слежка за сборками, остальных — свой круг.
     рисоватьГлавную();
     следить();
     следитьНаГлавной();
   } else if (что === "editor") {
+    отметитьЭтап("editor");
     панель([{ текст: "Дальше: картинки", что: () => открытьЭкран("picts") }]);
   } else if (что === "picts") {
+    отметитьЭтап("picts");
     рисоватьСлоты();
     рисоватьКадр("picts");
     панель([{ текст: "Дальше: сборка", что: () => открытьЭкран("build") }]);
@@ -7190,8 +7595,9 @@ const открытьЭкран = (что) => {
       { текст: "Собрать ролик", что: отправить },
       // Отправила выпуск — и сразу можно делать следующий: сборка идёт
       // сама, ждать её незачем.
-      { текст: "Новый выпуск", вид: "ghost", что: () => открытьЭкран("editor") },
+      { текст: "＋ Новый ролик", вид: "ghost", что: новыйРолик },
     ]);
+    отметитьЭтап("build");
     // Слежку не заводим повторно, если она уже идёт с этого захода.
     рисоватьСборки();
     следить();
@@ -7360,18 +7766,126 @@ $("кнопка-настройки").addEventListener("click", () => {
 $("назад-из-настроек").addEventListener("click", () => открытьЭкран("menu"));
 
 // ——————————————————————————————————————————————————————————
+//  Мои ролики: открыть, завести новый, убрать
+// ——————————————————————————————————————————————————————————
+// Поля редактора берутся из открытого ролика — после каждого переключения.
+const заполнитьПоля = () => {
+  $("hook").value = state.hook || "";
+  $("edition").value = state.edition || "";
+  $("mode").value = state.mode || "фото";
+  $("shot").value = state.shot || "крупный";
+  $("voice").value = state.voice ?? "en-US-GuyNeural";
+  $("theme").value = state.theme || "конфетный";
+  $("edge").value = state.edge || "острый";
+  рисоватьГамму();
+  $("coverOn").checked = (state.coverOn || "да") === "да";
+  $("outroOn").checked = (state.outroOn || "нет") === "да";
+  const выход = $("промпты-выход");
+  if (выход) выход.innerHTML = "";
+  if (state.промпты) рисоватьПромпты(state.промпты);
+  листКадра = 0;
+};
+
+const перейтиВРолик = (st, экран) => {
+  state = st;
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+  обновитьСводку(state);
+  заполнитьПоля();
+  рисовать();
+  открытьЭкран(экран || state.этап || "editor");
+};
+
+const открытьРолик = async (ид, экран) => {
+  if (ид === state.ид) { открытьЭкран(экран || state.этап || "editor"); return; }
+  await сохранитьСейчас();
+  const st = await взятьРолик(ид);
+  if (!st) {
+    сказать("Этот ролик не нашёлся в памяти телефона — возможно, браузер её почистил.");
+    ролики = ролики.filter((с) => с.ид !== ид);
+    запомнитьРолики();
+    рисоватьГлавную();
+    return;
+  }
+  перейтиВРолик(st, экран);
+};
+
+// Новый ролик — на тех же настройках (цвета, голос, заставка), с тем же
+// числом пустых вопросов. Прежний никуда не девается: он в «Моих роликах».
+const новыйРолик = () => {
+  сохранитьСейчас().catch(() => {});
+  const сколько = (state.rounds || []).length || 9;
+  const st = нормализоватьВыпуск({
+    ...ПУСТО(),
+    theme: state.theme, edge: state.edge, voice: state.voice, mode: state.mode,
+    shot: state.shot, coverOn: state.coverOn, outroOn: state.outroOn,
+    конфетныйПоУмолчанию: true,
+    hook: state.hook || "This or that",
+    edition: "",
+    rounds: Array.from({ length: сколько }, () => ({
+      top: "", bottom: "", pct: 55, picks: {}, photos: {},
+    })),
+    ид: новыйИд(),
+    создан: Date.now(),
+    этап: "editor",
+  });
+  перейтиВРолик(st, "editor");
+};
+
+const убратьРолик = async (ид) => {
+  const с = ролики.find((x) => x.ид === ид);
+  if (!confirm("Убрать ролик «" + (с ? с.имя : "") + "» из списка? Вопросы и картинки этого ролика пропадут."
+    + " Уже собранное видео останется на GitHub.")) return;
+  ролики = ролики.filter((x) => x.ид !== ид);
+  запомнитьРолики();
+  запасРоликов.delete(ид);
+  try { await фотоУбрать("ролик:" + ид); } catch {}
+  if (ид === state.ид) {
+    const следующий = ролики[0];
+    if (следующий) { const st = await взятьРолик(следующий.ид); if (st) { state = st; заполнитьПоля(); рисовать(); } }
+    else { state = нормализоватьВыпуск({ ...ПУСТО(), ид: новыйИд() }); заполнитьПоля(); рисовать(); }
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+    обновитьСводку(state);
+  }
+  рисоватьГлавную();
+};
+
+// Всплывающее «готово» о ролике, который сейчас не открыт.
+const тост = (текст, ид, экран) => {
+  let т = document.getElementById("тост");
+  if (!т) {
+    т = document.createElement("div");
+    т.id = "тост";
+    document.body.appendChild(т);
+  }
+  т.innerHTML = '<b></b><div class="кнопки-тоста"><button class="открыть-тост">Открыть</button>'
+    + '<button class="позже-тост">Позже</button></div>';
+  т.querySelector("b").textContent = текст;
+  т.classList.add("виден");
+  т.querySelector(".открыть-тост").onclick = безопасно("открыть ролик из уведомления", async () => {
+    т.classList.remove("виден");
+    await открытьРолик(ид, экран);
+  });
+  т.querySelector(".позже-тост").onclick = () => т.classList.remove("виден");
+  clearTimeout(тост.таймер);
+  тост.таймер = setTimeout(() => т.classList.remove("виден"), 15000);
+};
+
+// Положить результат долгого дела в ролик, где бы человек сейчас ни был.
+// Возвращает true, если ролик открыт прямо сейчас.
+const вРолик = async (ид, правка) => {
+  if (ид === state.ид) { правка(state); сохранить(); return true; }
+  const st = await взятьРолик(ид);
+  if (!st) return false;
+  правка(st);
+  await положитьРолик(st);
+  обновитьСводку(st);
+  return false;
+};
+
+// ——————————————————————————————————————————————————————————
 //  Первый показ
 // ——————————————————————————————————————————————————————————
-$("hook").value = state.hook || "";
-$("edition").value = state.edition || "";
-$("mode").value = state.mode || "фото";
-$("shot").value = state.shot || "крупный";
-$("voice").value = state.voice ?? "en-US-GuyNeural";
-$("theme").value = state.theme || "конфетный";
-$("edge").value = state.edge || "острый";
-рисоватьГамму();
-$("coverOn").checked = (state.coverOn || "да") === "да";
-$("outroOn").checked = (state.outroOn || "нет") === "да";
+заполнитьПоля();
 $("ключ-pexels").value = доступ.pexels || "";
 $("токен").value = доступ.токен || "";
 $("пароль-сайта").value = доступ.пароль || "";
@@ -7380,6 +7894,16 @@ $("ключ-нейро").value = доступ.нейро || "";
 
 $("домой").addEventListener("click",
   безопасно("кнопка «все викторины»", () => открытьЭкран("menu")));
+$("новый-ролик").addEventListener("click", безопасно("новый ролик", новыйРолик));
+document.querySelectorAll("#фильтры-роликов button").forEach((b) =>
+  b.addEventListener("click", () => { фильтрРоликов = b.dataset.ф; рисоватьРолики(); }));
+$("ролик-выбор").addEventListener("change", безопасно("другой ролик", async (e) => {
+  const ид = e.target.value;
+  if (ид === "+") { новыйРолик(); return; }
+  await открытьРолик(ид);
+}));
+// Копия открытого ролика — в базу телефона, на случай переключения.
+положитьРолик(state).catch(() => {});
 $("новый-на-тех-же").addEventListener("click",
   безопасно("новый выпуск на тех же настройках", новыйНаТехЖе));
 $("черновики-в-файл").addEventListener("click",
