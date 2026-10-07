@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-33";
+window.__ВЕРСИЯ = "2026-10-07-34";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -276,23 +276,26 @@ window.__ВЕРСИЯ = "2026-10-07-33";
   /* ДОМОЙ. Кнопка «к списку викторин» была только внизу экрана, под
      всей формой: чтобы сменить викторину, приходилось листать до конца.
      Теперь она сверху и на каждом экране — на одном и том же месте. */
-  .шапка{display:flex;align-items:center;gap:8px;margin:2px 0 6px}
-  .шапка button{width:auto;margin:0;padding:8px 12px;font-size:14px;
+  .липкий-верх{position:sticky;top:0;z-index:50;background:var(--ink);
+       margin:-18px -16px 8px;padding:calc(6px + env(safe-area-inset-top)) 16px 6px;
+       box-shadow:0 6px 12px -8px rgba(0,0,0,.6)}
+  .липкий-верх:has(.шапка.hide):has(.шаги.hide){display:none}
+  .шапка{display:flex;align-items:center;gap:8px;margin:0 0 6px}
+  .шапка button{width:auto;margin:0;padding:6px 10px;font-size:13px;
        background:var(--panel);color:var(--cream);border:1px solid var(--line);
        border-radius:11px;font-weight:600}
   .шапка .где{color:#b9a08f;font-size:13px;flex:1;min-width:0;
        overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .шаги{display:flex;gap:6px;margin:10px 0 14px}
+  .шаги{display:flex;gap:5px;margin:0}
   .шаги .шаг{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);
-       border-radius:11px;padding:8px 6px;text-align:center;font-size:12px;
-       color:#b9a08f;line-height:1.25}
-  .шаги .шаг b{display:block;font-size:11px;color:#7d6a5c;font-weight:700;
-       letter-spacing:.04em;margin-bottom:2px}
+       border-radius:999px;padding:5px 6px;text-align:center;font-size:12px;
+       color:#b9a08f;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+  .шаги .шаг b{display:inline;font-size:11px;color:#7d6a5c;font-weight:700;margin-right:4px}
   .шаги .шаг.тут{background:var(--terra);border-color:transparent;color:#fff}
   .шаги .шаг.тут b{color:#ffe6d8}
   .шаги .шаг.пройден{color:var(--cream);border-color:var(--terra-dark)}
   .шаги .шаг.пройден b{color:var(--gold)}
-  .шаги .шаг.нельзя{opacity:.45}
+  .шаги .шаг.нельзя{opacity:.6}
   /* ПЛАШКА ВМЕСТО ВСПЛЫВАЮЩЕГО ОКНА. Окно «ОК» перекрывает экран, его
      не перечитать и не скопировать, и оно пропадает, стоит ткнуть мимо.
      Плашка остаётся на экране, и в ней написано, ЧТО ДЕЛАТЬ. */
@@ -470,12 +473,16 @@ window.__ВЕРСИЯ = "2026-10-07-33";
 
   <!-- Полоса шагов и сообщения — общие на все экраны: так человек видит
        их на одном и том же месте, а не ищет каждый раз заново. -->
+  <!-- Шапка и шаги ЛИПНУТ к верху экрана: «Мои ролики» и «Вопросы ·
+       Картинки · Сборка» видны всегда, сколько ни листай. -->
+  <div class="липкий-верх">
   <div class="шапка hide" id="шапка">
     <button type="button" id="домой">‹ Мои ролики</button>
     <span class="где" id="шапка-где"></span>
     <select id="ролик-выбор" class="hide" aria-label="Другой ролик"></select>
   </div>
   <div class="шаги hide" id="полоса-шагов"></div>
+  </div>
   <div id="вести"></div>
 
   <!-- ————————————————— список викторин ————————————————— -->
@@ -1841,7 +1848,8 @@ const нарисоватьШаги = (экран) => {
       : i <= дошёл ? " пройден" : " нельзя");
     эл.innerHTML = "<b>" + (i + 1) + "</b>";
     эл.appendChild(document.createTextNode(ш.имя));
-    if (i !== сейчас && i <= дошёл) {
+    // В «Это или то» шаги — свободное меню: Вика ходит между ними сама.
+    if (i !== сейчас && (i <= дошёл || формат === "это-или-то")) {
       эл.addEventListener("click", безопасно("шаг «" + ш.имя + "»",
         () => открытьЭкран(ш.экран)));
     }
