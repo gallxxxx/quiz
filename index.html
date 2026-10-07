@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-36";
+window.__ВЕРСИЯ = "2026-10-07-37";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -124,7 +124,8 @@ window.__ВЕРСИЯ = "2026-10-07-36";
   .кадр .пол.верх{top:0;flex-direction:column}
   .кадр .пол.низ{bottom:0;flex-direction:column-reverse}
   /* Картинка как в ролике: 910 × 640 в 90 px от края кадра (образец Вики). */
-  .кадр .снимок{width:84.26%;aspect-ratio:910/640;background:#2c201a center/cover no-repeat;
+  /* Картинка НИКОГДА не обрезается рамкой (Вика) — вписывается целиком, как в ролике. */
+  .кадр .снимок{width:84.26%;aspect-ratio:910/640;background:#2c201a center/contain no-repeat;
        margin:0;flex:0 0 auto}
   .кадр:not(.лист) .пол{justify-content:flex-start}
   .кадр:not(.лист) .пол.верх{padding-top:8.33%}
@@ -358,7 +359,7 @@ window.__ВЕРСИЯ = "2026-10-07-36";
         padding:12px;margin:12px 0}
   .slot .top{display:flex;gap:12px;align-items:center}
   .slot .now{width:112px;height:63px;border-radius:12px;flex:0 0 auto;
-        background:#2c201a center/cover no-repeat;border:1px solid var(--line);
+        background:#2c201a center/contain no-repeat;border:1px solid var(--line);
         display:flex;align-items:center;justify-content:center;color:#7d6a5c;font-size:12px;
         text-align:center;position:relative;overflow:hidden}
   .slot .now .kind{position:absolute;right:3px;bottom:3px;background:rgba(0,0,0,.65);
@@ -377,7 +378,7 @@ window.__ВЕРСИЯ = "2026-10-07-36";
      обманывали: выбираешь по квадрату, а в ролик шла широкая обрезка. */
   .vars{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
   .vars .v{position:relative;aspect-ratio:16/9;border-radius:10px;overflow:hidden;
-        border:2px solid transparent;background:#2c201a center/cover no-repeat}
+        border:2px solid transparent;background:#2c201a center/contain no-repeat}
   .vars .v.sel{border-color:var(--gold)}
   .vars .v .mark{position:absolute;inset:auto 4px 4px auto;background:rgba(0,0,0,.7);
         border-radius:6px;font-size:10px;padding:1px 5px}
