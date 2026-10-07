@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-29";
+window.__ВЕРСИЯ = "2026-10-07-31";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -66,6 +66,8 @@ window.__ВЕРСИЯ = "2026-10-07-29";
   .pair .ручки-пары button{background:none;border:0;color:#b9a08f;font-size:16px;
        padding:4px 7px;margin:0;width:auto}
   .pair .ручки-пары button:disabled{opacity:.25}
+  .pair .ручки-пары .байт-метка{font-size:12px;opacity:.35;border:1px solid transparent;border-radius:999px;padding:3px 8px}
+  .pair .ручки-пары .байт-метка.выбран{opacity:1;color:#1a120e;background:var(--gold);font-weight:700}
   .side{display:flex;gap:10px;align-items:center;margin-top:8px}
   .side input{flex:1}
   .side .photo{width:54px;height:54px;border-radius:10px;border:1px dashed var(--line);
@@ -2268,6 +2270,7 @@ const рисовать = () => {
       // Порядок вопросов правится здесь же. Раньше поменять их местами
       // было нельзя вовсе: только стереть оба и набрать заново.
       '<span class="ручки-пары">' +
+      '<button class="байт-метка" title="Байт — приманка, остаётся на своём месте при перемешивании">🎣 байт</button>' +
       '<button class="вверх" title="Поднять выше" aria-label="Поднять выше">↑</button>' +
       '<button class="вниз" title="Опустить ниже" aria-label="Опустить ниже">↓</button>' +
       '<button class="kill" title="Убрать вопрос" aria-label="Убрать вопрос">✕</button>' +
@@ -2310,6 +2313,15 @@ const рисовать = () => {
     range.addEventListener("input", () => {
       r.pct = Number(range.value);
       el.querySelector(".pct").textContent = r.pct + " / " + (100 - r.pct);
+      сохранить();
+    });
+
+    const метка = el.querySelector(".байт-метка");
+    const отметитьБайт = () => метка.classList.toggle("выбран", байтВопрос(r));
+    отметитьБайт();
+    метка.addEventListener("click", () => {
+      r.байт = !байтВопрос(r);
+      отметитьБайт();
       сохранить();
     });
 
@@ -2356,7 +2368,12 @@ const рисовать = () => {
 // Байт — вопрос-приманка («marry the 3rd person» / «never have kids»).
 // Их в выпуске один-два, и стоят они на своём месте (обычно в конце):
 // перемешивание их не трогает, новые пары встают ПЕРЕД ними.
-const байтВопрос = (r) => БАЙТ.test(r.top || "") || БАЙТ.test(r.bottom || "");
+// Байты бывают не только «Nth person»: «Tag a friend…», «Comment your
+// favorite…», «Become billionaire but..», «Date with the first time…».
+// Главное — пометка нейросети при разборе (r.байт), это — подстраховка.
+const БАЙТ_ШИРЕ = /\b(\d+(st|nd|rd|th)|first|second|third|fourth|fifth|last)\s+(person|time)\b|\btag\b|\bcomments?\b|\bshare (this|it|with)\b|\bsend (this|it)\b|\bbut\s*\.{2,}|\.{2,}\s*$/i;
+const байтТекст = (т) => БАЙТ.test(т || "") || БАЙТ_ШИРЕ.test(т || "");
+const байтВопрос = (r) => r.байт === true || (r.байт !== false && (байтТекст(r.top) || байтТекст(r.bottom)));
 
 const СТОРОННИЕ = ["picks", "photos", "вырезано", "резатьФон"];
 const перевернутьВопрос = (r) => {
@@ -2438,7 +2455,7 @@ const добавитьПары = (пары, вид, st = state, вКонец = f
   const обычные = [], байты = [];
   for (const п of пары) {
     const r = { top: String(п.верх || "").trim(), bottom: String(п.низ || "").trim(),
-      pct: п.pct ?? 50, photos: {}, picks: {} };
+      pct: п.pct ?? 50, photos: {}, picks: {}, ...(п.байт ? { байт: true } : {}) };
     if (вид) r.вид = вид;
     const к = ключ(r.top, r.bottom);
     if (!r.top || !r.bottom || есть.has(к)) continue;
@@ -2853,7 +2870,7 @@ const парыОтНейросети = async (тема, уже, пишем) => {
     const data = вытащитьJSONброузер(txt);
     const пары = (data.пары || data.pairs || []).map((п) => ({
       верх: String(п.верх || п.top || "").trim(), низ: String(п.низ || п.bottom || "").trim() }))
-      .filter((п) => п.верх && п.низ && !БАЙТ.test(п.верх) && !БАЙТ.test(п.низ));
+      .filter((п) => п.верх && п.низ && !байтТекст(п.верх) && !байтТекст(п.низ));
     if (!пары.length) throw new Error("нет пар");
     return { пары, модель: j.model && /:free$/i.test(model) && !/:free$/i.test(j.model)
       ? j.model + ":free" : (j.model || model) };
@@ -3034,7 +3051,14 @@ const ПРОМПТ_РАЗБОР =
   "Верни ТОЛЬКО JSON:\n" +
   '{"язык":"ru или en","тема":"НАЗВАНИЕ ТЕМЫ по-английски или пусто",' +
   '"крючок":"фраза-крючок по-английски или пусто",' +
-  '"раунды":[{"верх":"верхний вариант","низ":"нижний вариант","процент_верх":число 0-100 или null}]}\n\n' +
+  '"раунды":[{"верх":"верхний вариант","низ":"нижний вариант","процент_верх":число 0-100 или null,"байт":true или false}]}\n\n' +
+  "«байт» = true, если раунд — ПРИМАНКА для вовлечения, а не честный выбор между двумя вещами. " +
+  "Признаки (хватит одного): упоминание человека по счёту или из друзей («with the 1st person», " +
+  "«with the first person», «marry the 3rd person», «date with the first time…»); призыв отметить, " +
+  "написать, поделиться («Tag a friend…», «Comment your favorite…», «Share with…»); обрыв-интрига " +
+  "с многоточием («Become billionaire but..», «Travel with the first person…»); пара «никогда больше X» " +
+  "против действия с человеком («Never have kids» / «Have kids with the first person»). " +
+  "Обычные пары (Pizza / Burger, Travel alone / Stay home) — false.\n\n" +
   "Правила: подписи ВСЕГДА по-английски (русские переведи; марки и названия — " +
   "общепринятым английским написанием). Один раунд — одна пара, не повторяй. " +
   "Пропусти заставку и концовку. «процент_верх» заполняй ТОЛЬКО если число видно " +
@@ -3228,7 +3252,8 @@ const понятныйОтказ = (т) => {
 const применитьРазбор = (st, data) => {
   const сырые = Array.isArray(data.раунды) ? data.раунды : [];
   const раунды = сырые
-    .map((r) => ({ верх: String(r.верх || "").trim(), низ: String(r.низ || "").trim(), пв: r.процент_верх }))
+    .map((r) => ({ верх: String(r.верх || "").trim(), низ: String(r.низ || "").trim(), пв: r.процент_верх,
+      байт: r.байт === true || r.байт === "true" }))
     .filter((r) => r.верх && r.низ);
   if (!раунды.length) throw new Error("в ролике не нашлось пар «одно или другое»");
   st.rounds = раунды.map((r) => ({
@@ -3237,6 +3262,7 @@ const применитьРазбор = (st, data) => {
     pct: r.пв == null ? 50 : Math.max(20, Math.min(80, Math.round(Number(r.пв)) || 50)),
     photos: {},
     picks: {},
+    ...(r.байт || байтТекст(r.верх) || байтТекст(r.низ) ? { байт: true } : {}),
   }));
   if (data.тема) st.edition = String(data.тема).trim();
   // Надпись сверху — всегда «This or that»; крючок чужого ролика её не затирает.
@@ -3253,7 +3279,8 @@ const заполнитьИзРазбора = (data) => {
 // Пары из разбора — в формат добавки.
 const парыИзРазбора = (data) => (Array.isArray(data.раунды) ? data.раунды : [])
   .map((r) => ({ верх: String(r.верх || "").trim(), низ: String(r.низ || "").trim(),
-    pct: r.процент_верх == null ? 50 : Math.max(20, Math.min(80, Math.round(Number(r.процент_верх)) || 50)) }))
+    pct: r.процент_верх == null ? 50 : Math.max(20, Math.min(80, Math.round(Number(r.процент_верх)) || 50)),
+    байт: r.байт === true || r.байт === "true" }))
   .filter((r) => r.верх && r.низ);
 
 // Разобрать один или несколько роликов. «добавить» — к уже вписанным
@@ -3318,7 +3345,7 @@ $("файл-ролик").addEventListener("change", безопасно("разб
 // по возможности по одному из каждого ролика, и каждый встаёт на ТО ЖЕ
 // место, где стоял в своём ролике (был последним — будет последним).
 const ВОПРОСОВ_В_СМЕСИ = 9;
-const байтПара = (п) => БАЙТ.test(п.верх) || БАЙТ.test(п.низ);
+const байтПара = (п) => п.байт === true || байтТекст(п.верх) || байтТекст(п.низ);
 
 const смешатьДва = (пА, пБ) => {
   const N = ВОПРОСОВ_В_СМЕСИ;
@@ -3388,7 +3415,8 @@ const смешатьРолики = async (files) => {
     if (!пА.length && !пБ.length) throw new Error("в роликах не нашлось пар «одно или другое»");
     const смесь = смешатьДва(пА, пБ);
     const правка = (st) => {
-      st.rounds = смесь.map((п) => ({ top: п.верх, bottom: п.низ, pct: п.pct ?? 50, photos: {}, picks: {} }));
+      st.rounds = смесь.map((п) => ({ top: п.верх, bottom: п.низ, pct: п.pct ?? 50, photos: {}, picks: {},
+        ...(байтПара(п) ? { байт: true } : {}) }));
       const тема = String(дА.тема || дБ.тема || "").trim();
       if (тема) st.edition = тема;
       for (const к of Object.keys(свои)) if (к.startsWith(st.ид + ":")) delete свои[к];
