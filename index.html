@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-19";
+window.__ВЕРСИЯ = "2026-10-07-20";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -2499,7 +2499,7 @@ const ВКУС_НЕЙРОСЕТЕЙ = [/nemotron.*ultra/i, /qwen/i, /deepseek/i,
   /gemma/i, /mistral/i, /nemotron/i];
 // «content-safety», «guard», «moderation» — это сторожа, а не собеседники:
 // они отвечают «безопасно / нет» и JSON с парами не напишут.
-const НЕ_ДЛЯ_НАС = /code|coder|laguna|embed|tts|audio|imagen|image-gen|guard|safety|moderat|:batch/i;
+const НЕ_ДЛЯ_НАС = /code|coder|laguna|embed|tts|audio|lyria|music|imagen|image-gen|guard|safety|moderat|:batch/i;
 const ЗАПАСНАЯ_НЕЙРОСЕТЬ = "google/gemini-2.5-flash";
 
 const списокНейросетей = async (нейро) => {
@@ -2829,7 +2829,12 @@ const разборНейросетью = async (листDataUrl, статус) =
   if (!нейро) throw new Error("нет ключа OpenRouter — впиши его в «Настройках доступа»");
 
   // Сначала бесплатные, которые видят картинки, потом платная Gemini Flash.
-  const кандидаты = кандидатыНейросетей(await списокНейросетей(нейро), true);
+  // ПЕРВОЙ — платная Gemini Flash: бесплатные Google вечно «заняты», а
+  // эта читает лист кадров за секунды и стоит доли цента за разбор.
+  // Нет денег на счёте — OpenRouter сразу ответит 402, и пойдём дальше
+  // по бесплатным, как раньше.
+  const кандидаты = [ЗАПАСНАЯ_НЕЙРОСЕТЬ, ...кандидатыНейросетей(await списокНейросетей(нейро), true)
+    .filter((m) => m !== ЗАПАСНАЯ_НЕЙРОСЕТЬ)];
 
   const тело = (model) => JSON.stringify({
     model,
@@ -2909,7 +2914,7 @@ const понятныйОтказ = (т) => {
   if (/^429/.test(т)) return "занята, очередь (429)";
   if (/пароль/i.test(т)) return "неверный пароль сайта — открой «🔑 Пароль»";
   if (/^401|^403/.test(т)) return "модель отказала (" + т.slice(0, 3) + ") — не для бесплатных";
-  if (/^402/.test(т)) return "просит оплату (402)";
+  if (/^402/.test(т)) return "платная — на счёте OpenRouter нет денег (402)";
   if (/^404|no endpoints|image input/i.test(т)) return "не принимает картинки";
   if (/^413|too large|payload/i.test(т)) return "кадры слишком большие (413)";
   if (/abort/i.test(т)) return "не ответила за 40 секунд (очередь)";
