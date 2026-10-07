@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-5";
+window.__ВЕРСИЯ = "2026-10-07-6";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -470,7 +470,7 @@ window.__ВЕРСИЯ = "2026-10-07-5";
     <div class="card">
       <button class="big turq" id="кнопка-ролик">🎬 Разобрать ролик из TikTok</button>
       <input type="file" id="файл-ролик" accept="video/*" class="hide">
-      <div class="muted" id="ролик-статус" style="margin-top:6px">
+      <div class="muted" id="ролик-статус" style="margin-top:6px;white-space:pre-line">
         Загрузи чужой ролик — сам вытащу пары. Работает сам, ничего вписывать не нужно.
       </div>
     </div>
@@ -2158,20 +2158,70 @@ const копироватьТекст = async (текст, кнопка) => {
   }
 };
 
-// Нейросеть САМА придумывает промпт под КАЖДЫЙ предмет: думает, что к нему
-// уместно (бургеру — ничего лишнего, картошке — кетчуп, наггетсам — соус,
-// машине — просто предмет). Возвращает карту «подпись → промпт».
-const промптыОтНейросети = async (пункты) => {
-  const нейро = нейроДоступ();
-  if (!нейро) throw new Error("нет ключа OpenRouter");
+// ——— КАКУЮ НЕЙРОСЕТЬ ЗВАТЬ ———
+// Вика: «сделай так, чтобы брали бесплатные модели, и чтобы на сайте
+// всегда писалось, какая нейросеть была использована». Список бесплатных
+// у OpenRouter меняется чуть ли не каждую неделю, поэтому имена не
+// зашиваем: берём свежий список и выбираем из него по вкусу. Платная
+// Gemini Flash — только запасная, если все бесплатные молчат.
+const ВКУС_НЕЙРОСЕТЕЙ = [/nemotron.*ultra/i, /qwen/i, /deepseek/i, /llama/i,
+  /gemma/i, /mistral/i, /nemotron/i];
+const НЕ_ДЛЯ_НАС = /code|coder|laguna|embed|tts|audio|imagen|image-gen|guard|:batch/i;
+const ЗАПАСНАЯ_НЕЙРОСЕТЬ = "google/gemini-2.5-flash";
 
-  let model = "google/gemini-2.5-flash";
+const списокНейросетей = async (нейро) => {
   try {
     const rm = await fetch(нейро.адрес + "models", { headers: нейро.заголовки });
     const jm = await rm.json();
-    const ids = (jm.data || []).map((m) => String(m.id || ""));
-    model = ids.find((x) => /gemini.*flash/i.test(x) && !/image|imagen|audio|tts|embed|:batch/i.test(x)) || model;
-  } catch (e) { /* запасная модель */ }
+    return Array.isArray(jm.data) ? jm.data : [];
+  } catch (e) { return []; }
+};
+const бесплатная = (m) => /:free$/i.test(String(m.id || ""))
+  || (String(m.pricing?.prompt) === "0" && String(m.pricing?.completion) === "0");
+const видитКартинки = (m) =>
+  (m.architecture?.input_modalities || []).includes("image")
+  || /image\+?text|text\+image/i.test(String(m.architecture?.modality || ""));
+
+const кандидатыНейросетей = (список, картинки) => {
+  const ранг = (id) => {
+    const i = ВКУС_НЕЙРОСЕТЕЙ.findIndex((в) => в.test(id));
+    return i < 0 ? 99 : i;
+  };
+  const даром = список
+    .filter((m) => бесплатная(m) && !НЕ_ДЛЯ_НАС.test(String(m.id || ""))
+      && (!картинки || видитКартинки(m)))
+    .sort((a, b) => ранг(a.id) - ранг(b.id)
+      || (b.context_length || 0) - (a.context_length || 0))
+    .map((m) => String(m.id));
+  return [...даром.slice(0, 4), ЗАПАСНАЯ_НЕЙРОСЕТЬ]
+    .filter((v, i, a) => v && a.indexOf(v) === i);
+};
+const имяНейросети = (id) => {
+  const чистое = String(id || "").replace(/:free$/i, "");
+  return чистое + (/:free$/i.test(String(id)) ? " (бесплатно)" : " (платно, доли цента)");
+};
+// Запрос с честным сроком: бесплатная модель в очереди может молчать
+// минутами — лучше перейти к следующей.
+const кНейросети = async (нейро, тело, срок = 90000) => {
+  const сторож = new AbortController();
+  const будильник = setTimeout(() => сторож.abort(), срок);
+  try {
+    return await fetch(нейро.адрес + "chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...нейро.заголовки },
+      body: JSON.stringify(тело),
+      signal: сторож.signal,
+    });
+  } finally { clearTimeout(будильник); }
+};
+
+// Нейросеть САМА придумывает промпт под КАЖДЫЙ предмет: думает, что к нему
+// уместно (бургеру — ничего лишнего, картошке — кетчуп, наггетсам — соус,
+// машине — просто предмет). Возвращает карту «подпись → промпт».
+const промптыОтНейросети = async (пункты, пишем = () => {}) => {
+  const нейро = нейроДоступ();
+  if (!нейро) throw new Error("нет ключа OpenRouter");
+  const кандидаты = кандидатыНейросетей(await списокНейросетей(нейро), false);
 
   const МЕТА =
     "Ты помогаешь делать картинки для видео-викторины «это или то».\n" +
@@ -2189,34 +2239,42 @@ const промптыОтНейросети = async (пункты) => {
     "Верни ТОЛЬКО JSON: {\"промпты\":[{\"подпись\":\"...\",\"промпт\":\"...\"}]}. Подписи — ДОСЛОВНО из списка.\n\n" +
     "Список:\n" + пункты.map((p, i) => (i + 1) + ". " + p).join("\n");
 
-  const r = await fetch(нейро.адрес + "chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...нейро.заголовки },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: "user", content: МЕТА }],
-      // Повыше, чтобы промпты не выходили под копирку.
-      temperature: 0.9,
-      max_tokens: 8192,
-      response_format: { type: "json_object" },
-    }),
-  });
-  if (!r.ok) throw new Error("нейросеть " + r.status);
-  const j = await r.json();
-  const txt = j.choices?.[0]?.message?.content;
-  if (!txt) throw new Error("пустой ответ");
-  const data = вытащитьJSONброузер(txt);
-  const карта = new Map();
-  (data.промпты || data.prompts || []).forEach((p) => {
-    const k = String(p.подпись || p.label || "").trim().toLowerCase();
-    let v = String(p.промпт || p.prompt || "").trim();
-    // Гарантируем явный код белого фона #FFFFFF в каждом промпте — даже
-    // если нейросеть написала просто «white background».
-    if (v && !/f{6}/i.test(v)) v += ", on a pure white background #FFFFFF";
-    if (k && v) карта.set(k, v);
-  });
-  if (!карта.size) throw new Error("нет промптов");
-  return карта;
+  let последняя = "не ответила";
+  for (const model of кандидаты) {
+    пишем("Нейросеть " + имяНейросети(model) + " придумывает промпты… (несколько секунд)");
+    try {
+      const r = await кНейросети(нейро, {
+        model,
+        messages: [{ role: "user", content: МЕТА }],
+        // Повыше, чтобы промпты не выходили под копирку.
+        temperature: 0.9,
+        max_tokens: 8192,
+        // Строгий JSON умеют не все бесплатные — у них разбираем текст.
+        ...(/:free$/i.test(model) ? {} : { response_format: { type: "json_object" } }),
+      });
+      if (!r.ok) { последняя = "нейросеть " + r.status; continue; }
+      const j = await r.json();
+      const txt = j.choices?.[0]?.message?.content;
+      if (!txt) { последняя = "пустой ответ"; continue; }
+      const data = вытащитьJSONброузер(txt);
+      const карта = new Map();
+      (data.промпты || data.prompts || []).forEach((p) => {
+        const k = String(p.подпись || p.label || "").trim().toLowerCase();
+        let v = String(p.промпт || p.prompt || "").trim();
+        // Гарантируем явный код белого фона #FFFFFF в каждом промпте — даже
+        // если нейросеть написала просто «white background».
+        if (v && !/f{6}/i.test(v)) v += ", on a pure white background #FFFFFF";
+        if (k && v) карта.set(k, v);
+      });
+      if (!карта.size) { последняя = "нет промптов"; continue; }
+      // OpenRouter говорит, какая модель ответила на самом деле.
+      return { карта, модель: j.model && /:free$/i.test(model) && !/:free$/i.test(j.model)
+        ? j.model + ":free" : (j.model || model) };
+    } catch (e) {
+      последняя = String((e && e.message) || e);
+    }
+  }
+  throw new Error(последняя);
 };
 
 $("кнопка-промпты").addEventListener("click", безопасно("промпты для картинок", async () => {
@@ -2237,18 +2295,23 @@ $("кнопка-промпты").addEventListener("click", безопасно("�
     return;
   }
 
-  выход.textContent = "Нейросеть придумывает промпт под каждое… (несколько секунд)";
+  выход.textContent = "Выбираю нейросеть…";
 
-  let карта = null;
-  try { карта = await промптыОтНейросети(пункты); } catch (e) { карта = null; }
+  let карта = null, модель = "";
+  try {
+    ({ карта, модель } = await промптыОтНейросети(пункты, (т) => { выход.textContent = т; }));
+  } catch (e) { карта = null; }
 
   выход.innerHTML = "";
   const инфо = document.createElement("div");
   инфо.className = "muted";
   инфо.style.margin = "8px 0";
-  инфо.textContent = карта
-    ? "Промпты продуманы под каждое: много штук в кадре, всё целиком, соусы только где уместно. Скопируй, вставь в свою нейросеть, сгенери на белом фоне и добавь кнопкой «своё фото»."
-    : "Нейросеть не ответила (лимит?) — дала простые промпты по шаблону. Можешь нажать ещё раз через минуту. Скопируй, вставь в свою нейросеть, добавь кнопкой «своё фото».";
+  инфо.textContent = (карта
+    ? "Нейросеть: " + имяНейросети(модель) + ".\n"
+      + "Промпты продуманы под каждое: много штук в кадре, всё целиком, соусы только где уместно. Скопируй, вставь в свою нейросеть, сгенери на белом фоне и добавь кнопкой «своё фото»."
+    : "Нейросеть: не ответила ни одна — промпты сделаны по простому шаблону, без нейросети.\n"
+      + "Можешь нажать ещё раз через минуту. Скопируй, вставь в свою нейросеть, добавь кнопкой «своё фото».");
+  инфо.style.whiteSpace = "pre-line";
   выход.appendChild(инфо);
 
   пункты.forEach((label, i) => {
@@ -2389,23 +2452,8 @@ const разборНейросетью = async (листDataUrl, статус) =
   const нейро = нейроДоступ();
   if (!нейро) throw new Error("нет ключа OpenRouter — впиши его в «Настройках доступа»");
 
-  // Собираем кандидатов: gemini-flash (они видят картинки). Из имени
-  // выкидываем генераторы картинок и прочее не-зрение.
-  let кандидаты = [];
-  try {
-    const rm = await fetch(нейро.адрес + "models", { headers: нейро.заголовки });
-    const jm = await rm.json();
-    const ids = (jm.data || []).map((m) => String(m.id || ""));
-    const без = (x) => !/image|thinking|audio|tts|embed|imagen|:batch/i.test(x);
-    кандидаты = ids.filter((x) => /gemini[\-.]?[0-9].*flash/i.test(x) && без(x))
-      .concat(ids.filter((x) => /gemini.*flash/i.test(x) && без(x)));
-  } catch (e) { /* список не дали — ниже запасные */ }
-  кандидаты = кандидаты.concat([
-    "google/gemini-2.5-flash",
-    "google/gemini-3.5-flash",
-    "google/gemini-flash-latest",
-  ]);
-  кандидаты = кандидаты.filter((v, i, a) => v && a.indexOf(v) === i).slice(0, 5);
+  // Сначала бесплатные, которые видят картинки, потом платная Gemini Flash.
+  const кандидаты = кандидатыНейросетей(await списокНейросетей(нейро), true);
 
   const тело = (model) => JSON.stringify({
     model,
@@ -2415,7 +2463,7 @@ const разборНейросетью = async (листDataUrl, статус) =
     ] }],
     temperature: 0,
     max_tokens: 4096,
-    response_format: { type: "json_object" },
+    ...(/:free$/i.test(model) ? {} : { response_format: { type: "json_object" } }),
   });
 
   const пауза = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -2424,18 +2472,15 @@ const разборНейросетью = async (листDataUrl, статус) =
   for (const model of кандидаты) {
     for (let попытка = 0; попытка < 2; попытка++) {
       try {
-        if (статус) статус("Читаю кадры нейросетью…");
-        const r = await fetch(нейро.адрес + "chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...нейро.заголовки },
-          body: тело(model),
-        });
+        if (статус) статус("Читаю кадры нейросетью " + имяНейросети(model) + "…");
+        const r = await кНейросети(нейро, JSON.parse(тело(model)));
         if (!r.ok) {
           const t = await r.text().catch(() => "");
           последняя = r.status + " " + t.slice(0, 120);
           // Модель не годится (не берёт картинки / нет такой) — к следующей.
           if (r.status === 404 || /no endpoints|image input|not a valid|not found/i.test(последняя)) break;
-          // Лимит или сбой сервера — повторим эту же.
+          // Лимит у бесплатной — сразу к следующей; у платной повторим.
+          if (r.status === 429 && /:free$/i.test(model)) break;
           if (r.status === 429 || r.status >= 500) { await пауза(3000); continue; }
           break;
         }
@@ -2443,7 +2488,11 @@ const разборНейросетью = async (листDataUrl, статус) =
         const txt = j.choices?.[0]?.message?.content;
         if (!txt) { последняя = "пустой ответ"; continue; }
         const data = вытащитьJSONброузер(txt);
-        if (data && Array.isArray(data.раунды) && data.раунды.length) return data;
+        if (data && Array.isArray(data.раунды) && data.раунды.length) {
+          data.нейросеть = j.model && /:free$/i.test(model) && !/:free$/i.test(j.model)
+            ? j.model + ":free" : (j.model || model);
+          return data;
+        }
         последняя = "кривой ответ";
       } catch (e) {
         последняя = String((e && e.message) || e); // «Load failed» и т.п.
@@ -2491,10 +2540,10 @@ $("файл-ролик").addEventListener("change", безопасно("разб
     заполнитьИзРазбора(data);
     const рус = String(data.язык || "").toLowerCase() === "ru";
     пиши("Готово: пары в «Вопросах»" + (рус ? " (перевела с русского)" : "") +
-      ". Проверь их, потом подбери картинки.");
+      ". Проверь их, потом подбери картинки.\nНейросеть: " + имяНейросети(data.нейросеть) + ".");
   } catch (err) {
     пиши("Не вышло: " + (err && err.message ? err.message : err) +
-      ". Попробуй ещё раз через минуту (у бесплатной нейросети лимит).");
+      ". Ни одна нейросеть не справилась — попробуй ещё раз через минуту.");
   }
 }));
 
