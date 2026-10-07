@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-16";
+window.__ВЕРСИЯ = "2026-10-07-17";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -2835,6 +2835,8 @@ const разборНейросетью = async (листDataUrl, статус) =
 
   const пауза = (ms) => new Promise((r) => setTimeout(r, ms));
   let последняя = "не ответила";
+  // Что ответила КАЖДАЯ нейросеть — чтобы по экрану было видно причину.
+  const отказы = [];
 
   for (const model of кандидаты) {
     for (let попытка = 0; попытка < 2; попытка++) {
@@ -2843,7 +2845,8 @@ const разборНейросетью = async (листDataUrl, статус) =
         const r = await кНейросети(нейро, JSON.parse(тело(model)));
         if (!r.ok) {
           const t = await r.text().catch(() => "");
-          последняя = r.status + " " + t.slice(0, 120);
+          последняя = r.status + " " + t.slice(0, 160);
+          отказы.push(имяНейросети(model).replace(/ \(.*\)$/, "") + ": " + понятныйОтказ(последняя));
           // Модель не годится (не берёт картинки / нет такой) — к следующей.
           if (r.status === 404 || /no endpoints|image input|not a valid|not found/i.test(последняя)) break;
           // Лимит у бесплатной — сразу к следующей; у платной повторим.
@@ -2853,21 +2856,41 @@ const разборНейросетью = async (листDataUrl, статус) =
         }
         const j = await r.json();
         const txt = j.choices?.[0]?.message?.content;
-        if (!txt) { последняя = "пустой ответ"; continue; }
-        const data = вытащитьJSONброузер(txt);
+        if (!txt) { последняя = "пустой ответ"; отказы.push(model + ": пустой ответ"); continue; }
+        let data = null;
+        try { data = вытащитьJSONброузер(txt); } catch (e) { /* ниже */ }
         if (data && Array.isArray(data.раунды) && data.раунды.length) {
           data.нейросеть = j.model && /:free$/i.test(model) && !/:free$/i.test(j.model)
             ? j.model + ":free" : (j.model || model);
           return data;
         }
         последняя = "кривой ответ";
+        отказы.push(model.replace(/:free$/, "") + ": ответ не по форме");
       } catch (e) {
         последняя = String((e && e.message) || e); // «Load failed» и т.п.
+        отказы.push(model.replace(/:free$/, "") + ": " + понятныйОтказ(последняя));
         await пауза(1500);
       }
     }
   }
-  throw new Error(последняя);
+  const лимит = отказы.some((о) => /лимит бесплатных на сегодня/.test(о));
+  throw new Error((лимит
+    ? "закончился дневной лимит бесплатных запросов OpenRouter — он обнуляется раз в сутки (в 3:00 по Москве)"
+    : "ни одна нейросеть не справилась") + ".\nЧто ответили:\n• " + [...new Set(отказы)].slice(0, 8).join("\n• "));
+};
+
+// Ответ OpenRouter — человеческими словами.
+const понятныйОтказ = (т) => {
+  т = String(т || "");
+  if (/free-models-per-day|per-day/i.test(т)) return "лимит бесплатных на сегодня исчерпан";
+  if (/^429/.test(т)) return "занята, очередь (429)";
+  if (/^401|^403/.test(т)) return "нет доступа (" + т.slice(0, 3) + ") — проверь пароль сайта";
+  if (/^402/.test(т)) return "просит оплату (402)";
+  if (/^404|no endpoints|image input/i.test(т)) return "не принимает картинки";
+  if (/^413|too large|payload/i.test(т)) return "кадры слишком большие (413)";
+  if (/abort/i.test(т)) return "не ответила за 90 секунд";
+  if (/load failed|failed to fetch|network/i.test(т)) return "нет связи (" + т.slice(0, 40) + ")";
+  return т.slice(0, 120);
 };
 
 const применитьРазбор = (st, data) => {
@@ -2923,8 +2946,8 @@ $("файл-ролик").addEventListener("change", безопасно("разб
       ". Проверь их, потом подбери картинки.\nНейросеть: " + имяНейросети(data.нейросеть) + ".", true);
     if (!здесь) тост("🎬 " + имяР() + ": пары из ролика готовы", ид, "editor");
   } catch (err) {
-    пиши("Не вышло: " + (err && err.message ? err.message : err) +
-      ". Ни одна нейросеть не справилась — попробуй ещё раз через минуту.", true);
+    const т = String(err && err.message ? err.message : err);
+    пиши("Не вышло: " + т + (/дневной лимит/.test(т) ? "" : "\nПопробуй ещё раз через минуту."), true);
   }
 }));
 
