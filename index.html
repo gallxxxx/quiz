@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-07-46";
+window.__ВЕРСИЯ = "2026-10-08-1";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -70,6 +70,9 @@ window.__ВЕРСИЯ = "2026-10-07-46";
   .pair .ручки-пары .байт-метка.выбран{opacity:1;color:#1a120e;background:var(--gold);font-weight:700}
   .side{display:flex;gap:10px;align-items:center;margin-top:8px}
   .side input{flex:1}
+  .side .photo.есть{border-style:solid}
+  .pair.только-что{outline:2px solid var(--gold);outline-offset:2px;transition:outline-color 1.2s}
+  .pair.только-что.гаснет{outline-color:transparent}
   .side .photo{width:54px;height:54px;border-radius:10px;border:1px dashed var(--line);
        background:#2c201a center/cover no-repeat;flex:0 0 auto;display:flex;
        align-items:center;justify-content:center;font-size:20px;color:#7d6a5c}
@@ -1992,15 +1995,22 @@ const сводкаРолика = (st) => {
   const вопросы = (st.rounds || []).filter((r) => (r.top || "").trim() || (r.bottom || "").trim());
   const мест = вопросы.length * 2;
   let выбрано = 0;
-  const превью = [];
   for (const r of вопросы) {
     for (const side of ["top", "bottom"]) {
-      const в = r.picks && r.picks[side];
-      const своё = r.photos && r.photos[side];
-      if (в || своё) выбрано += 1;
-      if (в && (в.показ || в.ссылка) && превью.length < 2) превью.push(в.показ || в.ссылка);
+      if ((r.picks && r.picks[side]) || (r.photos && r.photos[side])) выбрано += 1;
     }
   }
+  // ОБЛОЖКА КАРТОЧКИ — ПЕРВОЕ СРАВНЕНИЕ РОЛИКА (Вика: «чтобы было легко
+  // вспомнить, что это за ролик»): его две картинки и подписи. Своё фото
+  // слишком тяжёлое для списка — для него делается крошечная миниатюра.
+  const первый = вопросы[0];
+  const превью = первый ? ["top", "bottom"].map((side) => {
+    const в = первый.picks && первый.picks[side];
+    if (в && (в.показ || в.ссылка)) return в.показ || в.ссылка;
+    const своё = первый.photos && первый.photos[side];
+    return своё ? миниатюра(своё, st.ид) : null;
+  }) : [];
+  const первое = первый ? [первый.top, первый.bottom].map((x) => (x || "").trim()).filter(Boolean).join(" or ") : "";
   const было = ролики.find((с) => с.ид === st.ид) || {};
   return {
     ...было,
@@ -2014,8 +2024,40 @@ const сводкаРолика = (st) => {
     мест,
     выбрано,
     превью,
+    первое,
     тема: st.theme || "конфетный",
   };
+};
+
+// Миниатюры своих фото для карточек: ~120 точек, готовятся в фоне.
+// Пока не готова — карточка покажет цвет оформления.
+const миниатюрыКэш = new Map();
+const миниатюра = (b64, ид) => {
+  const ключ = b64.length + ":" + b64.slice(0, 48) + b64.slice(-48);
+  if (миниатюрыКэш.has(ключ)) return миниатюрыКэш.get(ключ);
+  миниатюрыКэш.set(ключ, null);
+  setTimeout(() => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 120 / Math.max(img.width || 1, img.height || 1));
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.width * k));
+      c.height = Math.max(1, Math.round(img.height * k));
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      const png = /png/.test(типКартинки(b64));
+      миниатюрыКэш.set(ключ, c.toDataURL(png ? "image/png" : "image/jpeg", 0.7));
+      // Готово — освежаем карточку этого ролика.
+      const st = ид === state.ид ? state : null;
+      if (st) обновитьСводку(st);
+      else {
+        const с = ролики.find((x) => x.ид === ид);
+        if (с) { взятьРолик(ид).then((полный) => { if (полный) { обновитьСводку(полный); рисоватьРолики(); } }).catch(() => {}); }
+      }
+      рисоватьРолики();
+    };
+    img.src = датаКартинка(b64);
+  }, 0);
+  return null;
 };
 const запомнитьРолики = () => {
   try { localStorage.setItem(KEY_РОЛИКИ, JSON.stringify(ролики)); } catch {}
@@ -2380,14 +2422,25 @@ const рисовать = () => {
       рисовать();
     });
 
+    // ЭКРАН ЕДЕТ ЗА ВОПРОСОМ (Вика: «не понятно, что куда ушло»):
+    // передвинутый вопрос остаётся на том же месте экрана, а страница
+    // сдвигается под ним; сам вопрос на мгновение подсвечен.
     const переставить = (куда) => {
       const j = i + куда;
       if (j < 0 || j >= state.rounds.length) return;
+      const былоY = el.getBoundingClientRect().top;
       [state.rounds[i], state.rounds[j]] = [state.rounds[j], state.rounds[i]];
       const откуда = state.rounds.map((_, k) => (k === i ? j : k === j ? i : k));
       переложитьСвои(откуда);
       сохранить();
       рисовать();
+      const новый = $("pairs").children[j];
+      if (новый) {
+        window.scrollBy(0, новый.getBoundingClientRect().top - былоY);
+        новый.classList.add("только-что");
+        setTimeout(() => новый.classList.add("гаснет"), 900);
+        setTimeout(() => новый.classList.remove("только-что", "гаснет"), 2200);
+      }
     };
     const вверх = el.querySelector(".вверх");
     const вниз = el.querySelector(".вниз");
@@ -2398,9 +2451,17 @@ const рисовать = () => {
 
     el.querySelectorAll(".photo").forEach((slot) => {
       const side = slot.dataset.side;
-      if (r.photos && r.photos[side]) {
-        slot.style.backgroundImage = 'url(' + датаКартинка(r.photos[side]) + ")";
+      // Видно всё, что уже стоит у вопроса: своё фото, кадр своего видео
+      // или выбранная на шаге «Картинки» — даже если стоят не все.
+      const в = r.picks && r.picks[side];
+      const видео = свои[state.ид + ":" + i + "-" + side];
+      const адрес = r.photos && r.photos[side] ? датаКартинка(r.photos[side])
+        : видео && видео.кадр ? видео.кадр
+        : в && (в.показ || в.ссылка) ? в.показ || в.ссылка : "";
+      if (адрес) {
+        slot.style.backgroundImage = 'url("' + String(адрес).replace(/"/g, "%22") + '")';
         slot.textContent = "";
+        slot.classList.add("есть");
       }
       slot.addEventListener("click", () => {
         ждёт = { round: i, side, откуда: "редактор" };
@@ -2766,7 +2827,8 @@ const запросПромптов = (пункты, дляЧата = false, те
   (дляЧата
     ? "Ответь по-русски коротко: для каждого пункта — его название и под ним промпт на английском отдельным абзацем, чтобы каждый промпт было удобно скопировать.\n\n"
     : "Верни ТОЛЬКО JSON: {\"промпты\":[{\"подпись\":\"...\",\"промпт\":\"...\"}]}. Подписи — ДОСЛОВНО из списка.\n\n") +
-  "Список:\n" + пункты.map((p, i) => (i + 1) + ". " + p.label + " [" + (p.вид === "16:9" ? "3:2" : "НА БЕЛОМ") + "]").join("\n");
+  "Список:\n" + пункты.map((p, i) => (i + 1) + ". " + p.label + " [" + (p.вид === "16:9" ? "3:2" : "НА БЕЛОМ") + "]"
+    + (p.старый ? "\n   (прошлый промпт не подошёл — напиши СОВСЕМ другой: другой ракурс, свет, окружение, идея. Прошлый был: " + p.старый + ")" : "")).join("\n");
 
 // Нейросеть САМА придумывает промпт под КАЖДЫЙ предмет: думает, что к нему
 // уместно (бургеру — ничего лишнего, картошке — кетчуп, наггетсам — соус,
@@ -3040,7 +3102,17 @@ const рисоватьПромпты = (п, пояснение = "") => {
       if (state.промпты === п) сохранить();
       отметить();
     }));
+    // ↻ — переписать ТОЛЬКО этот промпт (Вика), остальные не трогаем.
+    const заново = document.createElement("button");
+    заново.type = "button";
+    заново.className = "крош";
+    заново.title = "Переписать только этот промпт";
+    заново.textContent = "↻ Другой";
+    заново.style.marginLeft = "6px";
+    заново.addEventListener("click", безопасно("переписать промпт",
+      () => переписатьПромпт(label, вид, текст, заново)));
     card.appendChild(кноп);
+    card.appendChild(заново);
 
     выход.appendChild(card);
   });
@@ -3050,6 +3122,29 @@ const рисоватьПромпты = (п, пояснение = "") => {
   заново.textContent = "↻ Написать все промпты заново";
   заново.addEventListener("click", безопасно("промпты заново", () => писатьПромпты(true)));
   выход.appendChild(заново);
+};
+
+// Один промпт заново — той же цепочкой нейросетей (NVIDIA → Gemini).
+// Старый текст отдаём нейросети, чтобы новый вышел ДРУГИМ.
+const переписатьПромпт = async (label, вид, старый, кнопка) => {
+  const ид = state.ид;
+  кнопка.disabled = true;
+  кнопка.textContent = "пишу…";
+  try {
+    const { карта, модель } = await промптыОтНейросети(
+      [{ label, вид, старый }], () => {});
+    const текст = карта && карта.get(label.toLowerCase());
+    if (!текст) throw new Error("нет промпта");
+    await вРолик(ид, (st) => {
+      const м = new Map((st.промпты && st.промпты.карта) || []);
+      м.set(label.toLowerCase(), текст);
+      st.промпты = { ...(st.промпты || {}), карта: [...м.entries()], модель };
+    });
+    if (state.ид === ид) рисоватьПромпты(state.промпты, "Промпт «" + label + "» переписан.");
+  } catch (e) {
+    кнопка.disabled = false;
+    кнопка.textContent = "↻ не вышло, ещё раз";
+  }
 };
 
 // ПОВТОРНОЕ НАЖАТИЕ (Вика): готовые промпты не переписываются заново —
@@ -6055,8 +6150,8 @@ const рисоватьРолики = () => {
     суть.innerHTML = '<div class="имя"></div><div class="счёт"></div><div class="этапы"></div>'
       + '<div class="подписи-этапов"></div><div class="статус"></div>';
     суть.querySelector(".имя").textContent = с.имя || "Без темы";
-    суть.querySelector(".счёт").textContent = (с.заполнено || 0) + " вопр. · картинок "
-      + (с.выбрано || 0) + "/" + (с.мест || 0);
+    суть.querySelector(".счёт").textContent = (с.первое ? с.первое + " · " : "")
+      + (с.заполнено || 0) + " вопр. · картинок " + (с.выбрано || 0) + "/" + (с.мест || 0);
     ЭТАПЫ_РОЛИКА.forEach((имя, i) => {
       const полоска = document.createElement("i");
       if (о.готов) полоска.className = "готов";
