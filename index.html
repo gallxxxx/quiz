@@ -22,7 +22,7 @@
 // и правки будто «не приезжали». Теперь при каждом открытии тихо
 // спрашиваем сервер, нет ли версии новее, и если да — перезагружаемся
 // на неё. «__ВЕРСИЯ» меняется при каждой выкладке.
-window.__ВЕРСИЯ = "2026-10-09-1";
+window.__ВЕРСИЯ = "2026-10-12-1";
 (function () {
   try {
     var сейчас = new URLSearchParams(location.search).get("v");
@@ -595,7 +595,7 @@ window.__ВЕРСИЯ = "2026-10-09-1";
     <!-- Какая нейросеть пишет промпты первой. Не справилась — задача сама
          уходит ко второй, не справилась и та — список для ChatGPT. -->
     <div class="muted" style="margin-top:16px">Промпты пишет сначала:</div>
-    <div class="вид-картинки" id="выбор-нейросети">
+    <div class="вид-картинки выбор-нейро" id="выбор-нейросети">
       <button type="button" data-первая="nvidia" title="Бесплатная, но бывает медленной">NVIDIA · бесплатно</button>
       <button type="button" data-первая="gemini" title="Быстрая, доли цента за раз">Gemini · платно</button>
     </div>
@@ -709,6 +709,18 @@ window.__ВЕРСИЯ = "2026-10-09-1";
     </div>
 
     <div id="сборки"></div>
+
+    <!-- Тексты для публикации: TikTok — описание и 5 хэштегов, YouTube —
+         заголовок, описание с хэштегами и теги. Пишет нейросеть по нашим
+         правилам (ПРАВИЛА_ПУБЛИКАЦИИ), каждое поле копируется одной кнопкой. -->
+    <h2>Тексты для публикации</h2>
+    <div class="muted">Пишет сначала:</div>
+    <div class="вид-картинки выбор-нейро">
+      <button type="button" data-первая="nvidia" title="Бесплатная, но бывает медленной">NVIDIA · бесплатно</button>
+      <button type="button" data-первая="gemini" title="Быстрая, доли цента за раз">Gemini · платно</button>
+    </div>
+    <button class="big ghost" id="кнопка-публикация">📝 Описание, хэштеги и заголовок</button>
+    <div id="публикация-выход"></div>
 
     <button class="big ghost" id="назад-к-картинкам">← вернуться к картинкам</button>
   </div>
@@ -2850,10 +2862,10 @@ const порядокНейро = (nvidia, платная, срокNvidia, сро
   return перваяНейро() === "gemini" ? [г, н] : [н, г];
 };
 const рисоватьВыборНейро = () => {
-  document.querySelectorAll("#выбор-нейросети button").forEach((b) =>
+  document.querySelectorAll(".выбор-нейро button").forEach((b) =>
     b.classList.toggle("выбран", b.dataset.первая === перваяНейро()));
 };
-document.querySelectorAll("#выбор-нейросети button").forEach((b) =>
+document.querySelectorAll(".выбор-нейро button").forEach((b) =>
   b.addEventListener("click", () => {
     try { localStorage.setItem(КЛЮЧ_ПЕРВОЙ_НЕЙРО, b.dataset.первая); } catch {}
     рисоватьВыборНейро();
@@ -2943,6 +2955,182 @@ const промптыОтНейросети = async (пункты, пишем = (
   // бесплатные, а сразу дать список вопросов в столбик для ChatGPT.
   throw new Error(последняя);
 };
+
+// ——— Тексты для публикации ———
+// Вика: «для тик тока короткое описание и 5 хэштегов, для ютуба заголовок,
+// description, хэштеги, теги — и чтобы копировалось одной кнопкой».
+// Правила собраны по разборам TikTok SEO и YouTube (2026): ключевое слово
+// в начале, вопрос в комментарии, 3–5 точных хэштегов без #fyp/#viral,
+// на YouTube первые три хэштега видны над заголовком, теги — второстепенны.
+const ПЛОХИЕ_ХЭШТЕГИ = /^#(fyp|foryou|foryoupage|fy|viral|viralvideo|trending|explore|xyzbca|tiktok|shorts?|youtube|youtubeshorts)$/i;
+const ПРАВИЛА_ПУБЛИКАЦИИ = (тема, пары) =>
+  "You write upload texts for a short vertical quiz video in the format \"This or That\" " +
+  "(two options, viewers pick one, then percentages are revealed). Audience: English-speaking, mostly UK, also USA and Europe.\n" +
+  "Video topic: " + тема + "\n" +
+  "Questions in the video (option A / option B):\n" +
+  пары.map((п) => "- " + п).join("\n") + "\n\n" +
+  "RULES — TikTok:\n" +
+  "- caption: 1–2 short sentences, max 150 characters, natural English (not a list of keywords).\n" +
+  "- The FIRST sentence must contain the main search phrase: \"this or that\" + the topic (e.g. \"This or that: candy edition\").\n" +
+  "- End with a question that makes people comment (e.g. which one they picked, how many they matched with the majority).\n" +
+  "- At most 2 emojis. No hashtags inside the caption.\n" +
+  "- hashtags: EXACTLY 5, lowercase, no spaces: 1–2 for the format (#thisorthat, #wouldyourather, #pickone, #quiz), " +
+  "2 specific to the topic (e.g. #candy, #foodquiz, #snacks), 1 that names a concrete item or brand from the questions if it is popular. " +
+  "NEVER use #fyp, #foryou, #viral, #trending or other generic tags.\n\n" +
+  "RULES — YouTube Shorts:\n" +
+  "- title: max 60 characters, starts with the main keyword (\"This or That\" or \"Would You Rather\") + the topic, Title Case, " +
+  "may end with 1 emoji, honest (no clickbait that the video does not deliver), no hashtags in the title.\n" +
+  "- description: 3–4 short lines. Line 1 (max 120 characters): the main keyword naturally + what is inside (mention 1–2 items from the questions). " +
+  "Line 2: a question that invites comments. Line 3: \"Subscribe for a new quiz every day!\". Do NOT put hashtags in the description text — they are added separately.\n" +
+  "- hashtags: 3–5, the most important first (#thisorthat first, then the topic) — the first three are shown above the title.\n" +
+  "- tags: 8–12 search phrases, total under 400 characters: variations of the keyword (\"this or that\", \"this or that " + "<topic>\", \"would you rather\", \"pick one\", \"<topic> quiz\"), " +
+  "plus 2–3 concrete items from the questions. No hashtags symbols in tags.\n\n" +
+  "Everything in English. Return ONLY JSON:\n" +
+  '{"tiktok":{"caption":"...","hashtags":["#...","#...","#...","#...","#..."]},' +
+  '"youtube":{"title":"...","description":"...","hashtags":["#..."],"tags":["..."]}}';
+
+const чистыеХэштеги = (список, сколько) => [...new Set((список || [])
+  .map((х) => "#" + String(х || "").toLowerCase().replace(/^#+/, "").replace(/[^\p{L}\p{N}_]/gu, ""))
+  .filter((х) => х.length > 2 && !ПЛОХИЕ_ХЭШТЕГИ.test(х)))].slice(0, сколько);
+
+const текстыПубликацииОтНейросети = async (тема, пары, пишем = () => {}) => {
+  const нейро = нейроДоступ();
+  if (!нейро) throw new Error("нет доступа к нейросети — проверь пароль сайта");
+  const список = await списокНейросетей(нейро);
+  const бесплатные = кандидатыНейросетей(список, false);
+  const nvidia = бесплатные.find((m) => /nvidia|nemotron/i.test(m)) || null;
+  const платная = свежаяGemini(список);
+  const запрос = ПРАВИЛА_ПУБЛИКАЦИИ(тема, пары);
+  const одна = async (model, срок) => {
+    const r = await кНейросети(нейро, {
+      model,
+      messages: [{ role: "user", content: запрос }],
+      temperature: 0.8,
+      max_tokens: 4096,
+      reasoning: { effort: "low", exclude: true },
+      ...(/:free$/i.test(model) ? {} : { response_format: { type: "json_object" } }),
+    }, срок, null);
+    if (!r.ok) throw new Error("нейросеть " + r.status);
+    const j = await r.json();
+    const txt = j.choices?.[0]?.message?.content;
+    if (!txt) throw new Error("пустой ответ");
+    const d = вытащитьJSONброузер(txt);
+    const т = d.tiktok || {}, ю = d.youtube || {};
+    const тикток = {
+      описание: String(т.caption || "").replace(/#\S+/g, "").replace(/\s+/g, " ").trim().slice(0, 300),
+      хэштеги: чистыеХэштеги(т.hashtags, 5),
+    };
+    const ютуб = {
+      заголовок: String(ю.title || "").replace(/#\S+/g, "").replace(/\s+/g, " ").trim().slice(0, 100),
+      описание: String(ю.description || "").replace(/(^|\s)#\S+/g, "$1").replace(/[ \t]+\n/g, "\n").trim().slice(0, 4000),
+      хэштеги: чистыеХэштеги(ю.hashtags, 5),
+      теги: [...new Set((ю.tags || []).map((х) => String(х || "").replace(/#/g, "").replace(/[<>,]/g, " ").replace(/\s+/g, " ").trim().toLowerCase()).filter(Boolean))],
+    };
+    // Теги YouTube — не больше 500 знаков вместе с запятыми.
+    while (ютуб.теги.join(", ").length > 480) ютуб.теги.pop();
+    if (!тикток.описание || тикток.хэштеги.length < 3 || !ютуб.заголовок || !ютуб.описание) throw new Error("ответ неполный");
+    return { тикток, ютуб, модель: j.model || model };
+  };
+  let последняя = "не ответила";
+  let неСправилась = "";
+  for (const [model, срок, слова, кто] of порядокНейро(nvidia, платная, 45000, 60000)) {
+    if (!model) continue;
+    пишем("Нейросеть " + имяНейросети(model).replace(/ \(.*\)$/, "") + " (" + слова + ") пишет тексты…"
+      + (неСправилась ? " — " + неСправилась + " не справилась" : ""));
+    try { return await одна(model, срок); }
+    catch (e) { последняя = String((e && e.message) || e); неСправилась = кто; }
+  }
+  throw new Error(последняя);
+};
+
+// То, что уходит в одно поле площадки, копируется одной кнопкой:
+// TikTok — описание с хэштегами; YouTube — заголовок, описание (с
+// хэштегами в конце) и теги — это три разных поля в YouTube Studio.
+const текстыДляКопии = (п) => ({
+  тикток: п.тикток.описание + "\n\n" + п.тикток.хэштеги.join(" "),
+  заголовок: п.ютуб.заголовок,
+  описание: п.ютуб.описание + (п.ютуб.хэштеги.length ? "\n\n" + п.ютуб.хэштеги.join(" ") : ""),
+  теги: п.ютуб.теги.join(", "),
+});
+
+const рисоватьПубликацию = (п, пояснение = "") => {
+  const выход = $("публикация-выход");
+  выход.innerHTML = "";
+  if (пояснение) {
+    const d = document.createElement("div");
+    d.className = "muted";
+    d.style.cssText = "margin:8px 0;white-space:pre-line";
+    d.textContent = пояснение;
+    выход.appendChild(d);
+  }
+  if (!п || !п.тикток) return;
+  const т = текстыДляКопии(п);
+  const поле = (заг, текст, подсказка) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    const b = document.createElement("b");
+    b.textContent = заг;
+    card.appendChild(b);
+    if (подсказка) {
+      const м = document.createElement("div");
+      м.className = "muted";
+      м.style.cssText = "font-size:12px;margin:2px 0 0";
+      м.textContent = подсказка;
+      card.appendChild(м);
+    }
+    const тело = document.createElement("div");
+    тело.style.cssText = "white-space:pre-wrap;word-break:break-word;margin:8px 0;font-size:15px;line-height:1.45";
+    тело.textContent = текст;
+    card.appendChild(тело);
+    const кн = document.createElement("button");
+    кн.type = "button";
+    кн.className = "крош";
+    кн.textContent = "Копировать";
+    кн.addEventListener("click", () => копироватьТекст(текст, кн));
+    card.appendChild(кн);
+    выход.appendChild(card);
+  };
+  поле("TikTok — описание и хэштеги", т.тикток, "вставляется целиком в поле описания");
+  поле("YouTube — заголовок", т.заголовок, "поле «Название»");
+  поле("YouTube — описание и хэштеги", т.описание, "поле «Описание»; первые три хэштега YouTube покажет над названием");
+  if (т.теги) поле("YouTube — теги", т.теги, "поле «Теги» (в «Показать больше»); на просмотры влияют слабо, но не мешают");
+  const инфо = document.createElement("div");
+  инфо.className = "muted";
+  инфо.style.margin = "4px 0 8px";
+  инфо.textContent = "Нейросеть: " + имяНейросети(п.модель) + ".";
+  выход.appendChild(инфо);
+  const заново = document.createElement("button");
+  заново.type = "button";
+  заново.className = "big ghost";
+  заново.textContent = "↻ Написать другие тексты";
+  заново.addEventListener("click", безопасно("тексты заново", () => писатьПубликацию()));
+  выход.appendChild(заново);
+};
+
+const писатьПубликацию = async () => {
+  const ид = state.ид;
+  const тема = темаОбложки();
+  const пары = (state.rounds || [])
+    .filter((r) => (r.top || "").trim() && (r.bottom || "").trim() && !байтТекст(r.top) && !байтТекст(r.bottom))
+    .map((r) => r.top.trim() + " / " + r.bottom.trim());
+  if (!пары.length) {
+    рисоватьПубликацию(null, "Сначала впиши пары на шаге «Вопросы» — по ним пишутся тексты.");
+    return;
+  }
+  const кн = $("кнопка-публикация");
+  кн.disabled = true;
+  const пиши = (т) => { if (state.ид === ид) рисоватьПубликацию(null, т); };
+  try {
+    const итог = await текстыПубликацииОтНейросети(тема, пары, пиши);
+    await вРолик(ид, (st) => { st.публикация = итог; });
+    if (state.ид === ид) рисоватьПубликацию(итог);
+  } catch (e) {
+    пиши("Нейросети не справились (" + ((e && e.message) || e) + "). Нажми кнопку ещё раз через минуту.");
+  } finally {
+    кн.disabled = false;
+  }
+};
+$("кнопка-публикация").addEventListener("click", безопасно("тексты для публикации", () => писатьПубликацию()));
 
 // ——— Свои пары на тему ———
 // Чтобы выпуск не был копией чужого ролика: нейросеть придумывает новые
@@ -8479,6 +8667,7 @@ const открытьЭкран = (что) => {
       { текст: "＋ Новый ролик", вид: "ghost", что: новыйРолик },
     ]);
     отметитьЭтап("build");
+    рисоватьПубликацию(state.публикация || null);
     // Слежку не заводим повторно, если она уже идёт с этого захода.
     рисоватьСборки();
     следить();
